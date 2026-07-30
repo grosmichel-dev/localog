@@ -21,23 +21,23 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
 
       - name: npm 캐시
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.npm
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: ${{ runner.os }}-node-
 
       - name: Quartz 플러그인 캐시
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .quartz
           key: ${{ runner.os }}-quartz-${{ hashFiles('quartz.config.yaml') }}
