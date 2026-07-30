@@ -50,9 +50,11 @@ docs/              데이터 표준·운영 규칙
 
 ```bash
 npm ci
-npx quartz build --serve     # 미리보기
+node tools/build-site.mjs    # 전체 빌드 (CI 와 같은 순서)
 node tools/run-tests.mjs     # 검증 스크립트 테스트
 ```
+
+`build-site.mjs` 는 검증 → 개인정보 검사 → 카탈로그 생성 → 사이트 빌드 → 산출물 확인까지 한 번에 하고, 끝나면 생성물을 지워 작업 폴더를 깨끗하게 둡니다.
 
 Node 24 기준입니다(`.node-version`).
 
