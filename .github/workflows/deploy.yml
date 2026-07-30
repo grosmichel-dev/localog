@@ -58,7 +58,7 @@ jobs:
         run: npm run install-plugins
 
       - name: Quartz 빌드
-        run: npx quartz build
+        run: node ./quartz/bootstrap-cli.mjs build
 
       - name: 카탈로그 데이터 · 시민용 정적 페이지 복사 (빌드 후 — quartz 가 public 을 비우므로)
         run: |
