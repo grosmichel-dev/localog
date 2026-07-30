@@ -1,0 +1,70 @@
+name: 검사
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - run: npm ci
+
+      - name: 변경 경로 판정
+        id: changed
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+            if git diff --name-only "$BASE" "$HEAD" | grep -Eq '^(content|originals|assets)/'; then
+              echo "content=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "content=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "content=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 운영 문서 확인 (GOVERNANCE · SCREENING_SOP · 원천포맷)
+        run: node tools/gate-check.mjs
+
+      - name: 개인정보 검사
+        run: node tools/lint-pii.mjs
+
+      - name: 데이터 표준 검증
+        run: node tools/validate-frontmatter.mjs
+
+      - name: 데이터 표준 검증 (콘텐츠 PR — 공개 서명 필수)
+        if: steps.changed.outputs.content == 'true'
+        run: node tools/validate-frontmatter.mjs --require-published
+
+      - name: 카탈로그 생성 확인
+        run: node tools/build-catalog.mjs --content content --page-out /tmp/catalog.md --data-out /tmp/catalog-data
+
+      - name: 생성물이 저장소에 커밋되지 않았는지 확인
+        run: |
+          set -euo pipefail
+          for f in llms.txt catalog.csv content/_generated/catalog.md; do
+            if git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
+              echo "::error::$f 가 저장소에 커밋되어 있습니다 — 카탈로그는 사이트 산출물이어야 합니다"
+              exit 1
+            fi
+          done
+          echo "생성물 미커밋 확인 완료"
+
+      - name: 콘텐츠 PR 체크리스트 안내
+        if: steps.changed.outputs.content == 'true'
+        run: |
+          echo "::notice::콘텐츠 변경 PR입니다. 병합 전 확인하세요 — 민간인 개인정보 마스킹 서명, 원본/이미지 스크리닝 범위, 제3자 저작물 확인 (docs/SCREENING_SOP.md)"

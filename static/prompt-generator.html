@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>질문 만들기 · localog</title>
+<meta name="description" content="조건을 고르면 내 AI에 붙여넣을 질문 문장이 만들어집니다. localog — 대전 대덕구 공개 행정자료 아카이브.">
+<meta name="robots" content="index, follow">
+<style>
+:root {
+  --paper: #f7f7f5;
+  --card: #ffffff;
+  --ink: #1b1b1b;
+  --ink-soft: #4a4a48;
+  --line: #c9c9c4;
+  --line-strong: #8a8a84;
+  --brand: #1f4260;
+  --brand-ink: #ffffff;
+  --focus: #b8500a;
+  --ok-bg: #e7f0e9;
+  --ok-ink: #1f5130;
+  --radius: 6px;
+  --gap: 1.5rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #16181a;
+    --card: #1f2225;
+    --ink: #ececeb;
+    --ink-soft: #b8b9b7;
+    --line: #454a4e;
+    --line-strong: #757b80;
+    --brand: #7fb2d8;
+    --brand-ink: #10171d;
+    --focus: #ffb26b;
+    --ok-bg: #1e2f24;
+    --ok-ink: #a9d9bb;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  padding: 0 1rem 4rem;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", "맑은 고딕", system-ui, sans-serif;
+  font-size: 18px;
+  line-height: 1.7;
+  word-break: keep-all;
+}
+.wrap { max-width: 46rem; margin: 0 auto; }
+header.site {
+  border-bottom: 3px solid var(--brand);
+  padding: 2rem 0 1.25rem;
+  margin-bottom: var(--gap);
+}
+.eyebrow {
+  margin: 0 0 .35rem;
+  font-size: .95rem;
+  letter-spacing: .04em;
+  color: var(--ink-soft);
+}
+h1 { margin: 0 0 .5rem; font-size: 1.9rem; line-height: 1.35; }
+.lede { margin: 0; color: var(--ink-soft); font-size: 1.05rem; }
+section { margin-bottom: var(--gap); }
+h2 { font-size: 1.25rem; margin: 0 0 .75rem; }
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+}
+ol.steps { margin: 0; padding: 0; list-style: none; counter-reset: s; }
+ol.steps li {
+  counter-increment: s;
+  position: relative;
+  padding: .65rem 0 .65rem 3rem;
+  border-bottom: 1px solid var(--line);
+}
+ol.steps li:last-child { border-bottom: 0; padding-bottom: 0; }
+ol.steps li::before {
+  content: counter(s);
+  position: absolute;
+  left: 0; top: .6rem;
+  width: 2.1rem; height: 2.1rem;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--brand); color: var(--brand-ink);
+  border-radius: 50%;
+  font-size: 1rem; font-weight: 700;
+}
+.field { margin-bottom: 1.5rem; }
+.field:last-of-type { margin-bottom: 0; }
+label {
+  display: block;
+  font-weight: 700;
+  font-size: 1.05rem;
+  margin-bottom: .5rem;
+}
+.hint { display: block; font-weight: 400; font-size: .95rem; color: var(--ink-soft); margin-top: .15rem; }
+select {
+  width: 100%;
+  min-height: 52px;
+  padding: .6rem .75rem;
+  font: inherit;
+  font-size: 1.05rem;
+  color: var(--ink);
+  background: var(--card);
+  border: 2px solid var(--line-strong);
+  border-radius: var(--radius);
+}
+textarea {
+  width: 100%;
+  min-height: 22rem;
+  padding: 1rem;
+  font-family: ui-monospace, "D2Coding", "Consolas", "Menlo", monospace;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: var(--ink);
+  background: var(--card);
+  border: 2px solid var(--line-strong);
+  border-radius: var(--radius);
+  resize: vertical;
+  white-space: pre-wrap;
+}
+button {
+  width: 100%;
+  min-height: 60px;
+  padding: .9rem 1rem;
+  font: inherit;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--brand-ink);
+  background: var(--brand);
+  border: 2px solid var(--brand);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background-color .15s ease;
+}
+button:hover { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+button[data-copied="true"], button[data-copied="true"]:hover {
+  background: var(--ok-bg); color: var(--ok-ink); border-color: var(--ok-ink);
+}
+:is(a, button, select, textarea):focus-visible {
+  outline: 4px solid var(--focus);
+  outline-offset: 2px;
+}
+.status {
+  margin: .75rem 0 0;
+  min-height: 1.7rem;
+  font-weight: 700;
+  color: var(--ok-ink);
+}
+.note { font-size: .95rem; color: var(--ink-soft); }
+a { color: var(--brand); }
+@media (prefers-color-scheme: dark) { a { color: var(--brand); } }
+footer.site {
+  border-top: 1px solid var(--line);
+  padding-top: 1.25rem;
+  font-size: .95rem;
+  color: var(--ink-soft);
+}
+noscript p {
+  background: var(--ok-bg); color: var(--ok-ink);
+  padding: 1rem; border-radius: var(--radius); margin: 0 0 var(--gap);
+}
+@media (max-width: 30rem) {
+  body { font-size: 18px; padding: 0 .75rem 3rem; }
+  h1 { font-size: 1.6rem; }
+  .card { padding: 1.1rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="site">
+  <p class="eyebrow">localog · 대전 대덕구 공개 행정자료</p>
+  <h1>질문지 만들기</h1>
+  <p class="lede">조건을 고르면, 챗지피티·제미나이·클로드 같은 인공지능에 그대로 붙여넣을 질문지가 만들어집니다. 이 페이지는 답변을 만들지 않고, 질문지만 만들어 드립니다.</p>
+</header>
+
+<main>
+  <noscript>
+    <p>이 브라우저에서는 조건 고르기가 동작하지 않습니다. 아래 상자에 있는 기본 질문지를 그대로 긁어서 복사해 사용하셔도 됩니다.</p>
+  </noscript>
+
+  <section aria-labelledby="h-steps">
+    <h2 id="h-steps">사용 방법</h2>
+    <div class="card">
+      <ol class="steps">
+        <li>아래에서 <strong>조건을 고릅니다.</strong></li>
+        <li><strong>복사하기</strong> 단추를 누릅니다.</li>
+        <li>쓰시는 <strong>인공지능에 붙여넣습니다.</strong> (챗지피티, 제미나이, 클로드 등)</li>
+      </ol>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-form">
+    <h2 id="h-form">1. 조건 고르기</h2>
+    <div class="card">
+      <form id="form">
+        <div class="field">
+          <label for="topic">관심 분야
+            <span class="hint">어떤 분야의 기록을 찾을지 고르세요.</span>
+          </label>
+          <select id="topic" name="topic">
+            <option value="" selected>상관없음 (전체)</option>
+            <option value="복지·돌봄">복지·돌봄</option>
+            <option value="교통·도로">교통·도로</option>
+            <option value="환경·안전">환경·안전</option>
+            <option value="예산·재정">예산·재정</option>
+            <option value="주거·도시개발">주거·도시개발</option>
+            <option value="교육·문화">교육·문화</option>
+            <option value="보건·의료">보건·의료</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="age">나이대
+            <span class="hint">답변을 읽으실 분의 나이대입니다. 말투와 설명 수준이 달라집니다.</span>
+          </label>
+          <select id="age" name="age">
+            <option value="40대 이하">40대 이하</option>
+            <option value="50대">50대</option>
+            <option value="60대" selected>60대</option>
+            <option value="70대 이상">70대 이상</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="who">대상 구분
+            <span class="hint">해당하는 것이 없으면 그대로 두세요.</span>
+          </label>
+          <select id="who" name="who">
+            <option value="" selected>해당 없음</option>
+            <option value="어르신">어르신</option>
+            <option value="장애인">장애인</option>
+            <option value="아동·청소년 보호자">아동·청소년 보호자</option>
+            <option value="소상공인·자영업자">소상공인·자영업자</option>
+            <option value="1인 가구">1인 가구</option>
+            <option value="농업인">농업인</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="task">알고 싶은 것
+            <span class="hint">인공지능에게 시킬 일입니다.</span>
+          </label>
+          <select id="task" name="task">
+            <option value="summary" selected>무슨 일이 있었는지 쉽게 요약</option>
+            <option value="change">무엇이 어떻게 바뀌는지</option>
+            <option value="impact">나에게 어떤 영향이 있는지</option>
+            <option value="howto">어디에 신청·문의하면 되는지</option>
+          </select>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-out">
+    <h2 id="h-out">2. 만들어진 질문지</h2>
+    <div class="card">
+      <label for="output">아래 글 전체를 인공지능에 붙여넣으세요.</label>
+      <textarea id="output" readonly spellcheck="false" aria-describedby="copy-status">아래 지시를 그대로 따라 주세요.
+
+[1단계] 먼저 다음 주소에 있는 자료 목록을 읽어 주세요.
+https://grosmichel-dev.github.io/localog/llms.txt
+이 목록은 대전광역시 대덕구청·대덕구의회의 공개 행정자료(구청 공지사항, 고시·공고, 구청장회의, 구의회 회의록)를 모아 둔 자료 모음입니다. 목록을 읽기 전에는 답하지 마세요.
+
+[2단계] 목록에서 아래 조건에 맞는 자료를 찾아 주세요.
+- 읽는 사람: 60대
+
+[3단계] 답변은 다음 규칙을 반드시 지켜 주세요.
+1. 자료에 실제로 적혀 있는 내용만 말해 주세요. 짐작하거나 지어내지 마세요.
+2. 조건에 맞는 자료를 찾지 못했으면 "해당 자료 없음"이라고만 답해 주세요. 비슷한 이야기로 대신 채우지 마세요.
+3. 근거로 삼은 자료마다 문서번호, 날짜, 원문 링크를 함께 적어 주세요.
+4. 어려운 행정 용어는 60대가 이해할 수 있는 쉬운 말로 풀어 주세요.
+5. 먼저 3~5문장으로 요약하고, 그 아래에 자세한 내용을 적어 주세요.
+
+[4단계] 요청 내용
+최근에 어떤 일이 있었는지 시간 순서대로 정리해 주세요. 항목마다 언제, 무엇이, 어디에서 결정되었는지 알려 주세요.</textarea>
+      <button type="button" id="copy">복사하기</button>
+      <p class="status" id="copy-status" role="status" aria-live="polite"></p>
+      <p class="note">복사가 되지 않으면, 위 상자의 글을 손으로 긁어서 복사하셔도 됩니다.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="site">
+  <p>이 페이지는 인공지능을 호출하지 않습니다. 인터넷으로 아무것도 보내지 않고, 브라우저 안에서 글만 조립합니다.</p>
+  <p><a href="https://grosmichel-dev.github.io/localog">localog 첫 화면으로 돌아가기</a></p>
+</footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var CATALOG = "https://grosmichel-dev.github.io/localog/llms.txt";
+
+  var TASKS = {
+    summary: "최근에 어떤 일이 있었는지 시간 순서대로 정리해 주세요. 항목마다 언제, 무엇이, 어디에서 결정되었는지 알려 주세요.",
+    change: "무엇이 어떻게 바뀌는지 알려 주세요. 바뀌기 전과 바뀐 뒤를 비교해서 적고, 언제부터 적용되는지도 알려 주세요.",
+    impact: "이 내용이 저에게 어떤 영향을 주는지 알려 주세요. 새로 받을 수 있는 혜택, 늘어나는 부담, 달라지는 점을 나누어 적어 주세요.",
+    howto: "어디에 어떻게 신청하거나 문의하면 되는지 알려 주세요. 필요한 서류, 신청 기간, 담당 부서와 연락처가 자료에 있으면 함께 적어 주세요."
+  };
+
+  var el = {
+    topic: document.getElementById("topic"),
+    age: document.getElementById("age"),
+    who: document.getElementById("who"),
+    task: document.getElementById("task"),
+    output: document.getElementById("output"),
+    copy: document.getElementById("copy"),
+    status: document.getElementById("copy-status")
+  };
+
+  // 한글 종성이 있으면 조사 "이", 없으면 "가"
+  function withSubjectParticle(word) {
+    var last = word.charCodeAt(word.length - 1);
+    var hasFinal = last >= 0xac00 && last <= 0xd7a3 && (last - 0xac00) % 28 !== 0;
+    return word + (hasFinal ? "이" : "가");
+  }
+
+  function build() {
+    var age = el.age.value;
+    var conditions = [];
+    if (el.topic.value) { conditions.push("- 관심 분야: " + el.topic.value); }
+    conditions.push("- 읽는 사람: " + age);
+    if (el.who.value) { conditions.push("- 대상 구분: " + el.who.value); }
+
+    return [
+      "아래 지시를 그대로 따라 주세요.",
+      "",
+      "[1단계] 먼저 다음 주소에 있는 자료 목록을 읽어 주세요.",
+      CATALOG,
+      "이 목록은 대전광역시 대덕구청·대덕구의회의 공개 행정자료(구청 공지사항, 고시·공고, 구청장회의, 구의회 회의록)를 모아 둔 자료 모음입니다. 목록을 읽기 전에는 답하지 마세요.",
+      "",
+      "[2단계] 목록에서 아래 조건에 맞는 자료를 찾아 주세요.",
+      conditions.join("\n"),
+      "",
+      "[3단계] 답변은 다음 규칙을 반드시 지켜 주세요.",
+      "1. 자료에 실제로 적혀 있는 내용만 말해 주세요. 짐작하거나 지어내지 마세요.",
+      "2. 조건에 맞는 자료를 찾지 못했으면 \"해당 자료 없음\"이라고만 답해 주세요. 비슷한 이야기로 대신 채우지 마세요.",
+      "3. 근거로 삼은 자료마다 문서번호, 날짜, 원문 링크를 함께 적어 주세요.",
+      "4. 어려운 행정 용어는 " + withSubjectParticle(age) + " 이해할 수 있는 쉬운 말로 풀어 주세요.",
+      "5. 먼저 3~5문장으로 요약하고, 그 아래에 자세한 내용을 적어 주세요.",
+      "",
+      "[4단계] 요청 내용",
+      TASKS[el.task.value]
+    ].join("\n");
+  }
+
+  function render() {
+    el.output.value = build();
+    el.copy.removeAttribute("data-copied");
+    el.copy.textContent = "복사하기";
+    el.status.textContent = "";
+  }
+
+  function legacyCopy() {
+    el.output.focus();
+    el.output.select();
+    el.output.setSelectionRange(0, el.output.value.length);
+    try {
+      return document.execCommand("copy");
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function succeeded() {
+    el.copy.setAttribute("data-copied", "true");
+    el.copy.textContent = "복사됐습니다";
+    el.status.textContent = "복사됐습니다. 이제 쓰시는 인공지능 입력창에 붙여넣으세요.";
+  }
+
+  function failed() {
+    el.status.textContent = "자동 복사가 되지 않았습니다. 위 상자의 글을 손으로 긁어서 복사해 주세요.";
+    el.output.focus();
+    el.output.select();
+  }
+
+  ["topic", "age", "who", "task"].forEach(function (name) {
+    el[name].addEventListener("change", render);
+  });
+
+  el.copy.addEventListener("click", function () {
+    var text = el.output.value;
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(succeeded, function () {
+        if (legacyCopy()) { succeeded(); } else { failed(); }
+      });
+      return;
+    }
+    if (legacyCopy()) { succeeded(); } else { failed(); }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

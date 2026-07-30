@@ -1,0 +1,116 @@
+name: 사이트 배포
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+env:
+  PAGES_URL: https://grosmichel-dev.github.io/localog
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - name: npm 캐시
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-node-
+
+      - name: Quartz 플러그인 캐시
+        uses: actions/cache@v4
+        with:
+          path: .quartz
+          key: ${{ runner.os }}-quartz-${{ hashFiles('quartz.config.yaml') }}
+          restore-keys: ${{ runner.os }}-quartz-
+
+      - run: npm ci
+
+      - name: 데이터 표준 검증
+        run: node tools/validate-frontmatter.mjs --require-published
+
+      - name: 개인정보 검사
+        run: node tools/lint-pii.mjs
+
+      - name: 카탈로그 생성 (빌드 전 — 페이지는 임시 콘텐츠 경로로)
+        run: node tools/build-catalog.mjs --content content --page-out content/_generated/catalog.md --data-out .catalog-tmp
+
+      - name: Quartz 플러그인 설치
+        run: npm run install-plugins
+
+      - name: Quartz 빌드
+        run: npx quartz build
+
+      - name: 카탈로그 데이터 · 시민용 정적 페이지 복사 (빌드 후 — quartz 가 public 을 비우므로)
+        run: |
+          set -euo pipefail
+          cp .catalog-tmp/llms.txt .catalog-tmp/catalog.csv public/
+          mkdir -p public/static
+          cp -r static/. public/static/
+
+      - name: 산출물 검증
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$1"; exit 1; }
+
+          [ -f public/llms.txt ] || fail "public/llms.txt 가 없습니다"
+          [ -f public/catalog.csv ] || fail "public/catalog.csv 가 없습니다"
+
+          if [ ! -f public/_generated/catalog.html ] && [ ! -f public/_generated/catalog/index.html ]; then
+            fail "카탈로그 페이지가 사이트에 생성되지 않았습니다"
+          fi
+
+          [ -f public/static/prompt-generator.html ] || fail "질문 생성기 페이지가 사이트에 없습니다"
+
+          grep -q "source_commit:.*${GITHUB_SHA}" public/llms.txt \
+            || fail "llms.txt 의 source_commit 이 이번 커밋(${GITHUB_SHA})과 다릅니다"
+
+          head -1 public/catalog.csv | grep -q "source_commit" \
+            || fail "catalog.csv 헤더에 source_commit 열이 없습니다"
+
+          if [ "$(wc -l < public/catalog.csv)" -gt 1 ]; then
+            grep -q "${GITHUB_SHA}" public/catalog.csv \
+              || fail "catalog.csv 데이터 행의 source_commit 이 이번 커밋과 다릅니다"
+          fi
+
+          for f in llms.txt catalog.csv content/_generated/catalog.md; do
+            if git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
+              fail "$f 가 저장소에 커밋되어 있습니다 — 카탈로그는 사이트 산출물이어야 합니다"
+            fi
+          done
+
+          echo "산출물 검증 통과"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: GitHub Pages 배포
+        id: deployment
+        uses: actions/deploy-pages@v4
