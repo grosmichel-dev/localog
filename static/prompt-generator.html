@@ -98,7 +98,7 @@ label {
   margin-bottom: .5rem;
 }
 .hint { display: block; font-weight: 400; font-size: .95rem; color: var(--ink-soft); margin-top: .15rem; }
-select {
+select, input[type="text"] {
   width: 100%;
   min-height: 52px;
   padding: .6rem .75rem;
@@ -109,9 +109,30 @@ select {
   border: 2px solid var(--line-strong);
   border-radius: var(--radius);
 }
+.checks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .5rem;
+}
+@media (max-width: 30rem) { .checks { grid-template-columns: 1fr; } }
+.check {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  min-height: 52px;
+  padding: .5rem .75rem;
+  margin: 0;
+  font-weight: 400;
+  font-size: 1.02rem;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.check:hover { border-color: var(--line-strong); }
+.check input { width: 1.5rem; height: 1.5rem; margin: 0; accent-color: var(--brand); flex: none; }
+.check:has(input:checked) { border-color: var(--brand); background: var(--ok-bg); color: var(--ok-ink); }
 textarea {
   width: 100%;
-  min-height: 22rem;
   padding: 1rem;
   font-family: ui-monospace, "D2Coding", "Consolas", "Menlo", monospace;
   font-size: 1rem;
@@ -123,6 +144,12 @@ textarea {
   resize: vertical;
   white-space: pre-wrap;
 }
+textarea#ask {
+  min-height: 6rem;
+  font-family: inherit;
+  font-size: 1.05rem;
+}
+textarea#output { min-height: 24rem; }
 button {
   width: 100%;
   min-height: 60px;
@@ -141,7 +168,7 @@ button:hover { background: var(--ink); border-color: var(--ink); color: var(--pa
 button[data-copied="true"], button[data-copied="true"]:hover {
   background: var(--ok-bg); color: var(--ok-ink); border-color: var(--ok-ink);
 }
-:is(a, button, select, textarea):focus-visible {
+:is(a, button, select, textarea, input):focus-visible {
   outline: 4px solid var(--focus);
   outline-offset: 2px;
 }
@@ -152,8 +179,15 @@ button[data-copied="true"], button[data-copied="true"]:hover {
   color: var(--ok-ink);
 }
 .note { font-size: .95rem; color: var(--ink-soft); }
+.empty {
+  margin: 0;
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--ink-soft);
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+}
 a { color: var(--brand); }
-@media (prefers-color-scheme: dark) { a { color: var(--brand); } }
 footer.site {
   border-top: 1px solid var(--line);
   padding-top: 1.25rem;
@@ -178,14 +212,14 @@ noscript p {
 <div class="wrap">
 
 <header class="site">
-  <p class="eyebrow">localog · 대전 대덕구 공개 행정자료</p>
+  <p class="eyebrow">localog · 공개 행정자료 아카이브</p>
   <h1>질문지 만들기</h1>
   <p class="lede">조건을 고르면, 챗지피티·제미나이·클로드 같은 인공지능에 그대로 붙여넣을 질문지가 만들어집니다. 이 페이지는 답변을 만들지 않고, 질문지만 만들어 드립니다.</p>
 </header>
 
 <main>
   <noscript>
-    <p>이 브라우저에서는 조건 고르기가 동작하지 않습니다. 아래 상자에 있는 기본 질문지를 그대로 긁어서 복사해 사용하셔도 됩니다.</p>
+    <p>이 브라우저에서는 조건 고르기가 동작하지 않습니다. 아래 &ldquo;직접 쓰기&rdquo; 안내를 참고해 주세요.</p>
   </noscript>
 
   <section aria-labelledby="h-steps">
@@ -193,8 +227,8 @@ noscript p {
     <div class="card">
       <ol class="steps">
         <li>아래에서 <strong>조건을 고릅니다.</strong></li>
-        <li><strong>복사하기</strong> 단추를 누릅니다.</li>
-        <li>쓰시는 <strong>인공지능에 붙여넣습니다.</strong> (챗지피티, 제미나이, 클로드 등)</li>
+        <li><strong>질문지 만들기</strong> 단추를 누릅니다.</li>
+        <li>만들어진 글을 <strong>복사해서 인공지능에 붙여넣습니다.</strong></li>
       </ol>
     </div>
   </section>
@@ -204,95 +238,96 @@ noscript p {
     <div class="card">
       <form id="form">
         <div class="field">
+          <label for="region">지역
+            <span class="hint">지금은 대전광역시 대덕구 자료만 모아 두었습니다. 다른 지역은 준비되는 대로 추가됩니다.</span>
+          </label>
+          <select id="region" name="region">
+            <option value="대전광역시 대덕구" selected>대전광역시 대덕구</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="birth">태어난 해
+            <span class="hint">지원 자격이 나이로 갈리는 경우가 많아, 태어난 해를 알려 주면 훨씬 정확해집니다.</span>
+          </label>
+          <select id="birth" name="birth">
+            <option value="" selected>고르지 않음</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="gender">성별
+            <span class="hint">성별에 따라 대상이 갈리는 지원이 있습니다.</span>
+          </label>
+          <select id="gender" name="gender">
+            <option value="" selected>밝히지 않음</option>
+            <option value="여성">여성</option>
+            <option value="남성">남성</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label id="who-label">해당하는 것 <span style="font-weight:400">(여러 개 고를 수 있습니다)</span>
+            <span class="hint">해당하는 것이 없으면 그냥 넘어가셔도 됩니다.</span>
+          </label>
+          <div class="checks" role="group" aria-labelledby="who-label" id="who"></div>
+        </div>
+
+        <div class="field">
           <label for="topic">관심 분야
             <span class="hint">어떤 분야의 기록을 찾을지 고르세요.</span>
           </label>
           <select id="topic" name="topic">
             <option value="" selected>상관없음 (전체)</option>
             <option value="복지·돌봄">복지·돌봄</option>
+            <option value="일자리·창업">일자리·창업</option>
+            <option value="주거·도시개발">주거·도시개발</option>
             <option value="교통·도로">교통·도로</option>
             <option value="환경·안전">환경·안전</option>
-            <option value="예산·재정">예산·재정</option>
-            <option value="주거·도시개발">주거·도시개발</option>
-            <option value="교육·문화">교육·문화</option>
             <option value="보건·의료">보건·의료</option>
+            <option value="교육·문화">교육·문화</option>
+            <option value="예산·재정">예산·재정</option>
           </select>
         </div>
 
         <div class="field">
-          <label for="age">나이대
-            <span class="hint">답변을 읽으실 분의 나이대입니다. 말투와 설명 수준이 달라집니다.</span>
+          <label for="ask">알고 싶은 것
+            <span class="hint">궁금한 것을 그대로 적으세요. 비워 두면 &ldquo;내가 받을 수 있는 지원이 있는지&rdquo;를 물어봅니다.</span>
           </label>
-          <select id="age" name="age">
-            <option value="40대 이하">40대 이하</option>
-            <option value="50대">50대</option>
-            <option value="60대" selected>60대</option>
-            <option value="70대 이상">70대 이상</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label for="who">대상 구분
-            <span class="hint">해당하는 것이 없으면 그대로 두세요.</span>
-          </label>
-          <select id="who" name="who">
-            <option value="" selected>해당 없음</option>
-            <option value="어르신">어르신</option>
-            <option value="장애인">장애인</option>
-            <option value="아동·청소년 보호자">아동·청소년 보호자</option>
-            <option value="소상공인·자영업자">소상공인·자영업자</option>
-            <option value="1인 가구">1인 가구</option>
-            <option value="농업인">농업인</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label for="task">알고 싶은 것
-            <span class="hint">인공지능에게 시킬 일입니다.</span>
-          </label>
-          <select id="task" name="task">
-            <option value="summary" selected>무슨 일이 있었는지 쉽게 요약</option>
-            <option value="change">무엇이 어떻게 바뀌는지</option>
-            <option value="impact">나에게 어떤 영향이 있는지</option>
-            <option value="howto">어디에 신청·문의하면 되는지</option>
-          </select>
+          <textarea id="ask" name="ask" placeholder="예) 내가 받을 수 있는 청년 지원사업이 있는지, 신청 기간이 언제까지인지 알려 주세요."></textarea>
         </div>
       </form>
     </div>
   </section>
 
-  <section aria-labelledby="h-out">
-    <h2 id="h-out">2. 만들어진 질문지</h2>
+  <section aria-labelledby="h-make">
+    <h2 id="h-make">2. 질문지 만들기</h2>
     <div class="card">
-      <label for="output">아래 글 전체를 인공지능에 붙여넣으세요.</label>
-      <textarea id="output" readonly spellcheck="false" aria-describedby="copy-status">아래 지시를 그대로 따라 주세요.
+      <button type="button" id="make">질문지 만들기</button>
+      <p class="note" style="margin-bottom:0">누르면 아래에 질문지가 만들어집니다. 조건을 바꾸면 다시 눌러 주세요.</p>
+    </div>
+  </section>
 
-[1단계] 먼저 다음 주소에 있는 자료 목록을 읽어 주세요.
-https://grosmichel-dev.github.io/localog/llms.txt
-이 목록은 대전광역시 대덕구청·대덕구의회의 공개 행정자료(구청 공지사항, 고시·공고, 구청장회의, 구의회 회의록)를 모아 둔 자료 모음입니다. 목록을 읽기 전에는 답하지 마세요.
-
-[2단계] 목록에서 아래 조건에 맞는 자료를 찾아 주세요.
-- 읽는 사람: 60대
-
-[3단계] 답변은 다음 규칙을 반드시 지켜 주세요.
-1. 자료에 실제로 적혀 있는 내용만 말해 주세요. 짐작하거나 지어내지 마세요.
-2. 조건에 맞는 자료를 찾지 못했으면 "해당 자료 없음"이라고만 답해 주세요. 비슷한 이야기로 대신 채우지 마세요.
-3. 근거로 삼은 자료마다 문서번호, 날짜, 원문 링크를 함께 적어 주세요.
-4. 어려운 행정 용어는 60대가 이해할 수 있는 쉬운 말로 풀어 주세요.
-5. 먼저 3~5문장으로 요약하고, 그 아래에 자세한 내용을 적어 주세요.
-
-[4단계] 요청 내용
-최근에 어떤 일이 있었는지 시간 순서대로 정리해 주세요. 항목마다 언제, 무엇이, 어디에서 결정되었는지 알려 주세요.</textarea>
-      <button type="button" id="copy">복사하기</button>
-      <p class="status" id="copy-status" role="status" aria-live="polite"></p>
-      <p class="note">복사가 되지 않으면, 위 상자의 글을 손으로 긁어서 복사하셔도 됩니다.</p>
+  <section aria-labelledby="h-out">
+    <h2 id="h-out">3. 만들어진 질문지</h2>
+    <div class="card">
+      <div id="placeholder">
+        <p class="empty">아직 만들어지지 않았습니다.<br>위에서 조건을 고른 뒤 <strong>질문지 만들기</strong>를 눌러 주세요.</p>
+      </div>
+      <div id="result" hidden>
+        <label for="output">아래 글 전체를 인공지능에 붙여넣으세요.</label>
+        <textarea id="output" readonly spellcheck="false" aria-describedby="copy-status"></textarea>
+        <button type="button" id="copy">복사하기</button>
+        <p class="status" id="copy-status" role="status" aria-live="polite"></p>
+        <p class="note">복사가 되지 않으면, 위 상자의 글을 손으로 긁어서 복사하셔도 됩니다.</p>
+      </div>
     </div>
   </section>
 </main>
 
 <footer class="site">
-  <p>이 페이지는 인공지능을 호출하지 않습니다. 인터넷으로 아무것도 보내지 않고, 브라우저 안에서 글만 조립합니다.</p>
-  <p><a href="https://grosmichel-dev.github.io/localog">localog 첫 화면으로 돌아가기</a></p>
+  <p>이 페이지는 인공지능을 호출하지 않습니다. 인터넷으로 아무것도 보내지 않고, 브라우저 안에서 글만 조립합니다. 고르신 조건도 저장되지 않습니다.</p>
+  <p><a href="https://grosmichel-dev.github.io/localog/">localog 첫 화면으로 돌아가기</a></p>
 </footer>
 
 </div>
@@ -302,44 +337,98 @@ https://grosmichel-dev.github.io/localog/llms.txt
   "use strict";
 
   var CATALOG = "https://grosmichel-dev.github.io/localog/llms.txt";
+  var OLDEST_BIRTH_YEAR = 1920;
 
-  var TASKS = {
-    summary: "최근에 어떤 일이 있었는지 시간 순서대로 정리해 주세요. 항목마다 언제, 무엇이, 어디에서 결정되었는지 알려 주세요.",
-    change: "무엇이 어떻게 바뀌는지 알려 주세요. 바뀌기 전과 바뀐 뒤를 비교해서 적고, 언제부터 적용되는지도 알려 주세요.",
-    impact: "이 내용이 저에게 어떤 영향을 주는지 알려 주세요. 새로 받을 수 있는 혜택, 늘어나는 부담, 달라지는 점을 나누어 적어 주세요.",
-    howto: "어디에 어떻게 신청하거나 문의하면 되는지 알려 주세요. 필요한 서류, 신청 기간, 담당 부서와 연락처가 자료에 있으면 함께 적어 주세요."
-  };
+  var WHO_OPTIONS = [
+    "청년", "신혼부부", "임산부", "영유아 양육",
+    "다자녀 가구", "한부모 가구", "어르신", "장애인",
+    "1인 가구", "구직 중", "소상공인·자영업자", "기초생활수급·차상위",
+    "다문화 가구", "국가유공자·보훈"
+  ];
 
   var el = {
-    topic: document.getElementById("topic"),
-    age: document.getElementById("age"),
+    region: document.getElementById("region"),
+    birth: document.getElementById("birth"),
+    gender: document.getElementById("gender"),
     who: document.getElementById("who"),
-    task: document.getElementById("task"),
+    topic: document.getElementById("topic"),
+    ask: document.getElementById("ask"),
+    make: document.getElementById("make"),
+    placeholder: document.getElementById("placeholder"),
+    result: document.getElementById("result"),
     output: document.getElementById("output"),
     copy: document.getElementById("copy"),
     status: document.getElementById("copy-status")
   };
 
-  // 한글 종성이 있으면 조사 "이", 없으면 "가"
-  function withSubjectParticle(word) {
-    var last = word.charCodeAt(word.length - 1);
-    var hasFinal = last >= 0xac00 && last <= 0xd7a3 && (last - 0xac00) % 28 !== 0;
-    return word + (hasFinal ? "이" : "가");
+  function fillBirthYears() {
+    var now = new Date().getFullYear();
+    var frag = document.createDocumentFragment();
+    for (var y = now; y >= OLDEST_BIRTH_YEAR; y--) {
+      var o = document.createElement("option");
+      o.value = String(y);
+      o.textContent = y + "년";
+      frag.appendChild(o);
+    }
+    el.birth.appendChild(frag);
+  }
+
+  function fillWho() {
+    var frag = document.createDocumentFragment();
+    WHO_OPTIONS.forEach(function (name, i) {
+      var id = "who-" + i;
+      var label = document.createElement("label");
+      label.className = "check";
+      label.setAttribute("for", id);
+      var input = document.createElement("input");
+      input.type = "checkbox";
+      input.id = id;
+      input.value = name;
+      var span = document.createElement("span");
+      span.textContent = name;
+      label.appendChild(input);
+      label.appendChild(span);
+      frag.appendChild(label);
+    });
+    el.who.appendChild(frag);
+  }
+
+  function checkedWho() {
+    return Array.prototype.slice
+      .call(el.who.querySelectorAll("input:checked"))
+      .map(function (i) { return i.value; });
+  }
+
+  // 청년 정책은 "연 나이"(그 해 - 태어난 해), 대부분의 법령은 "만 나이"를 쓴다. 둘 다 적어야 자격 판단이 된다.
+  // 생년만 알면 만 나이는 생일 전후로 1살 차이가 나므로 범위로 적는다.
+  function ageLine(birthYear) {
+    var now = new Date().getFullYear();
+    var yearAge = now - parseInt(birthYear, 10);
+    return birthYear + "년생 (" + now + "년 기준 연 나이 " + yearAge + "세, 만 " + (yearAge - 1) + "~" + yearAge + "세)";
   }
 
   function build() {
-    var age = el.age.value;
-    var conditions = [];
+    var region = el.region.value;
+    var conditions = ["- 지역: " + region];
+
+    if (el.birth.value) { conditions.push("- 나이: " + ageLine(el.birth.value)); }
+    if (el.gender.value) { conditions.push("- 성별: " + el.gender.value); }
+
+    var who = checkedWho();
+    if (who.length) { conditions.push("- 해당 사항: " + who.join(", ")); }
     if (el.topic.value) { conditions.push("- 관심 분야: " + el.topic.value); }
-    conditions.push("- 읽는 사람: " + age);
-    if (el.who.value) { conditions.push("- 대상 구분: " + el.who.value); }
+
+    var ask = el.ask.value.trim();
+    if (!ask) {
+      ask = "위 조건에 해당하는 제가 받을 수 있는 지원이나 알아야 할 내용이 있는지 알려 주세요.";
+    }
 
     return [
       "아래 지시를 그대로 따라 주세요.",
       "",
       "[1단계] 먼저 다음 주소에 있는 자료 목록을 읽어 주세요.",
       CATALOG,
-      "이 목록은 대전광역시 대덕구청·대덕구의회의 공개 행정자료(구청 공지사항, 고시·공고, 구청장회의, 구의회 회의록)를 모아 둔 자료 모음입니다. 목록을 읽기 전에는 답하지 마세요.",
+      "이 목록은 " + region + "의 공개 행정자료(구청 공지사항, 고시·공고, 구청장회의, 구의회 회의록)를 모아 둔 자료 모음입니다. 목록을 읽기 전에는 답하지 마세요.",
       "",
       "[2단계] 목록에서 아래 조건에 맞는 자료를 찾아 주세요.",
       conditions.join("\n"),
@@ -348,19 +437,23 @@ https://grosmichel-dev.github.io/localog/llms.txt
       "1. 자료에 실제로 적혀 있는 내용만 말해 주세요. 짐작하거나 지어내지 마세요.",
       "2. 조건에 맞는 자료를 찾지 못했으면 \"해당 자료 없음\"이라고만 답해 주세요. 비슷한 이야기로 대신 채우지 마세요.",
       "3. 근거로 삼은 자료마다 문서번호, 날짜, 원문 링크를 함께 적어 주세요.",
-      "4. 어려운 행정 용어는 " + withSubjectParticle(age) + " 이해할 수 있는 쉬운 말로 풀어 주세요.",
-      "5. 먼저 3~5문장으로 요약하고, 그 아래에 자세한 내용을 적어 주세요.",
+      "4. 나이·성별·해당 사항으로 자격이 갈리는 경우, 제가 해당하는지 아닌지를 분명히 알려 주세요. 자료에 기준이 적혀 있지 않으면 \"자료에 기준 없음\"이라고 적어 주세요.",
+      "5. 어려운 행정 용어는 쉬운 말로 풀어 주세요.",
+      "6. 먼저 3~5문장으로 요약하고, 그 아래에 자세한 내용을 적어 주세요.",
       "",
       "[4단계] 요청 내용",
-      TASKS[el.task.value]
+      ask
     ].join("\n");
   }
 
-  function render() {
+  function make() {
     el.output.value = build();
+    el.placeholder.hidden = true;
+    el.result.hidden = false;
     el.copy.removeAttribute("data-copied");
     el.copy.textContent = "복사하기";
-    el.status.textContent = "";
+    el.status.textContent = "질문지가 만들어졌습니다. 아래 상자의 글을 복사해 주세요.";
+    el.result.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function legacyCopy() {
@@ -386,9 +479,23 @@ https://grosmichel-dev.github.io/localog/llms.txt
     el.output.select();
   }
 
-  ["topic", "age", "who", "task"].forEach(function (name) {
-    el[name].addEventListener("change", render);
+  // 조건을 바꾸면 이미 만든 질문지가 옛것이 된다. 그대로 두면 바뀐 줄 알고 복사한다.
+  function markStale() {
+    if (el.result.hidden) { return; }
+    el.copy.removeAttribute("data-copied");
+    el.copy.textContent = "복사하기";
+    el.status.textContent = "조건이 바뀌었습니다. 위 [질문지 만들기]를 다시 눌러 주세요.";
+  }
+
+  fillBirthYears();
+  fillWho();
+
+  el.make.addEventListener("click", make);
+  ["region", "birth", "gender", "topic"].forEach(function (name) {
+    el[name].addEventListener("change", markStale);
   });
+  el.ask.addEventListener("input", markStale);
+  el.who.addEventListener("change", markStale);
 
   el.copy.addEventListener("click", function () {
     var text = el.output.value;
@@ -400,8 +507,6 @@ https://grosmichel-dev.github.io/localog/llms.txt
     }
     if (legacyCopy()) { succeeded(); } else { failed(); }
   });
-
-  render();
 })();
 </script>
 </body>

@@ -1,0 +1,18 @@
+split_by: 부서
+title_format: "2026년 {부서} 악성입력 시험"
+summary_group: 부서
+amount_column: 예산액
+total_column: 구분
+total_value: 합계
+
+date: 2026-01-01
+department: 기획예산과
+source_type: 예산서
+keywords: [시험, 이스케이프]
+source_url: https://example.invalid/hostile
+doc_id_prefix: 시험-악성입력-2026
+
+review_status: screened
+pii_screened_by: fixture-reviewer
+screened_at: 2026-01-02T00:00:00Z
+screening_scope: markdown+csv

@@ -1,0 +1,21 @@
+# 예산 CSV 동반 설정. 규약은 docs/BUDGET-CSV-SPEC.md 참고.
+# 분할 기준을 바꾸려면 split_by 열 이름만 바꾸면 된다(도구 수정 불필요).
+split_by: 부서
+title_format: "2026년 {부서} 세출예산"
+summary_group: 부서
+amount_column: 예산액
+total_column: 구분
+total_value: 합계
+
+date: 2026-01-01
+department: 기획예산과
+source_type: 예산서
+keywords: [예산, 세출예산, 2026]
+source_url: https://www.daejeon.go.kr/daedeok/example-budget
+doc_id_prefix: 대덕구-기획예산과-2026-세출
+
+# 사람이 진본 CSV 를 검토했다는 서명. 생성기는 이 값을 만들어내지 않고 상속만 한다.
+review_status: screened
+pii_screened_by: fixture-reviewer
+screened_at: 2026-01-02T00:00:00Z
+screening_scope: markdown+csv

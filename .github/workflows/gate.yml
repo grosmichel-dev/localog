@@ -50,6 +50,12 @@ jobs:
         if: steps.changed.outputs.content == 'true'
         run: node tools/validate-frontmatter.mjs --require-published
 
+      - name: 예산 CSV 검증 (짝 meta·서명·열 존재·고아 CSV)
+        run: node tools/validate-budget-csv.mjs --content content --pairs-out /tmp/budget-pairs.json
+
+      - name: 예산 페이지 생성 확인
+        run: node tools/build-budget-pages.mjs --content content --pairs-in /tmp/budget-pairs.json --dry-run
+
       - name: 카탈로그 생성 확인
         run: node tools/build-catalog.mjs --content content --page-out /tmp/catalog.md --data-out /tmp/catalog-data
 
@@ -63,6 +69,24 @@ jobs:
             fi
           done
           echo "생성물 미커밋 확인 완료"
+
+      - name: 자동 생성 문서가 커밋되지 않았는지 확인
+        run: |
+          set -euo pipefail
+          git ls-files content | grep -E '\.md$' > /tmp/tracked-md.txt || true
+          : > /tmp/generated-offenders.txt
+          while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            if head -n 40 "$f" | grep -qE '^generated:[[:space:]]*true'; then
+              echo "$f" >> /tmp/generated-offenders.txt
+            fi
+          done < /tmp/tracked-md.txt
+          if [ -s /tmp/generated-offenders.txt ]; then
+            echo "::error::자동 생성 문서가 저장소에 커밋되어 있습니다 — 진본은 CSV 이고 문서는 빌드 산출물입니다"
+            cat /tmp/generated-offenders.txt
+            exit 1
+          fi
+          echo "자동 생성 문서 미커밋 확인 완료"
 
       - name: 콘텐츠 PR 체크리스트 안내
         if: steps.changed.outputs.content == 'true'
