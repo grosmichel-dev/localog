@@ -2,12 +2,15 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { classifyContentFile } from './lib/classify.mjs';
 
-const SOURCE_TYPES = new Set(['구청 공지사항', '고시공고', '구청장회의(유튜브)', '구의회 회의록']);
+const SOURCE_TYPES = new Set(['구청 공지사항', '고시공고', '구청장회의(유튜브)', '구의회 회의록', '예산서']);
 const FOLDER_SOURCE_TYPES = new Map([
   ['구청공지사항', '구청 공지사항'],
   ['고시공고', '고시공고'],
   ['구청장회의', '구청장회의(유튜브)'],
   ['구의회회의록', '구의회 회의록'],
+  // 예산서는 enum 과 폴더 매핑을 함께 넣어야 한다. 하나만 넣으면
+  // "문서분류 폴더가 표준값이 아닙니다" 로 예산서 폴더 전체가 반려된다.
+  ['예산서', '예산서'],
 ]);
 
 function usage() {

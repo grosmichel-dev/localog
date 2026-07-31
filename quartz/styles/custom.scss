@@ -79,3 +79,240 @@
     transition: none;
   }
 }
+
+// 예산 표 컨트롤 — static/budget-table.js 가 만드는 요소들.
+// 스크립트가 없으면 이 요소들도 생기지 않으므로 표는 기본 스타일로 그대로 보인다.
+.budget-table-controls {
+  margin: 1rem 0 0.5rem;
+}
+
+// 예산 표는 열이 많아(부서·팀·정책/단위/세부사업·편성목·금액…) 기본 여백으로는
+// 금액 열이 화면 밖으로 밀린다. 예산 표에서만 여백과 셀 패딩을 줄여 한 화면에 들어오게 한다.
+// 그래도 넘치면 .table-container 의 가로 스크롤이 받아준다.
+.budget-table-controls + .table-container > table {
+  margin: 0.5rem 0;
+  padding: 0;
+  font-size: 0.86rem;
+
+  th,
+  td {
+    min-width: 0;
+    padding: 0.3rem 0.45rem;
+    white-space: nowrap;
+  }
+}
+
+.budget-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--lightgray);
+  border-radius: 8px;
+  background-color: var(--light);
+}
+
+.budget-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 18rem;
+}
+
+.budget-search-input {
+  flex: 1 1 auto;
+  min-width: 8rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--lightgray);
+  border-radius: 4px;
+  background-color: var(--light);
+  color: var(--dark);
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.budget-count {
+  color: var(--gray);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.budget-sums {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.budget-sums-label {
+  font-size: 0.78rem;
+  color: var(--gray);
+  border-bottom: 1px dotted var(--gray);
+  cursor: help;
+  white-space: nowrap;
+}
+
+.budget-sums-values {
+  font-weight: $semiBoldWeight;
+  color: var(--secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+th.budget-sortable {
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    color: var(--secondary);
+  }
+
+  &.budget-sorted-asc::after {
+    content: " ▲";
+    font-size: 0.7em;
+  }
+
+  &.budget-sorted-desc::after {
+    content: " ▼";
+    font-size: 0.7em;
+  }
+}
+
+// 원문 합계행 — 사이트가 계산한 값이 아니라 원문 예산서에 실려 있던 값이다.
+tr.budget-total-row {
+  font-weight: $semiBoldWeight;
+  border-top: 2px solid var(--gray);
+  background-color: var(--lightgray);
+}
+
+.budget-total-badge {
+  display: inline-block;
+  margin-left: 0.3rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background-color: var(--secondary);
+  color: var(--light);
+  font-size: 0.72rem;
+  font-weight: $semiBoldWeight;
+  vertical-align: middle;
+  cursor: help;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 홈(첫 화면) 전용 — 랜딩
+//
+// 랜딩은 "입구"지 "목차"가 아니다. 외부인은 검색하거나 AI에 연결할 뿐
+// 내부 자료를 뒤지지 않으므로, 홈에서는 탐색 UI를 걷어내고 행동 카드만 남긴다.
+// 탐색기·그래프·목차·백링크를 숨기는 것은 quartz.config.yaml 의
+// `condition: not-index` 가 담당한다(마크업 자체가 렌더되지 않는다).
+// 여기서는 그 결과로 비어버린 공간을 정리하고 히어로·진입점을 그린다.
+//
+// ★ 모든 규칙은 반드시 body[data-slug="index"] 로 스코프한다.
+//   전역 규칙을 추가하면 다른 페이지가 함께 바뀐다.
+//   (홈의 slug 는 "index", 중첩 폴더 index 는 "대전시/대덕구/index" 라 걸리지 않는다)
+// ★ 색은 CSS 변수만 쓴다. 하드코딩하면 다크모드가 깨진다.
+// ─────────────────────────────────────────────────────────────────────────────
+
+body[data-slug="index"] {
+  // 우측 사이드바가 비었으므로 폭을 본문에 돌려준다.
+  // 열 개수(3)는 그대로 두고 마지막 열만 0 으로 접는다 —
+  // grid-template-areas 가 grid-sidebar-right 를 참조하므로 열을 없애면 안 된다.
+  //
+  // ★ 반드시 데스크톱으로 한정할 것. 감싸지 않으면 모바일이 깨진다.
+  //   base.scss 의 모바일/태블릿 그리드 재정의는 `.page > #quartz-body`(특이도 1,1,0)이고
+  //   이 규칙은 `body[data-slug="index"] #quartz-body`(특이도 1,1,1)로 더 높다.
+  //   미디어쿼리는 특이도를 올려주지 않으므로, 범위를 좁히지 않으면 이 3열이
+  //   모바일에서도 이겨서 375px 화면에 320px 고정 열이 생기고 가로 스크롤이 터진다.
+  @media all and #{$desktop} {
+    #quartz-body {
+      grid-template-columns: #{$sidePanelWidth} auto 0;
+    }
+  }
+
+  // 숨기는 것 자체는 모든 폭에서 한다.
+  // 태블릿·모바일에서는 우측 사이드바가 그리드 열이 아니라 본문 아래 흐름으로
+  // 들어오므로(base.scss 의 `not ($desktop)` 분기), 열 조정과 달리 폭 제한이 필요 없다.
+  .sidebar.right {
+    display: none;
+  }
+
+  // 본문과 page-footer 사이 구분선. 홈은 afterBody 가 비어 있어
+  // 선만 덩그러니 남는다.
+  .center > hr {
+    display: none;
+  }
+
+  .lg-hero {
+    margin: 0.4rem 0 2rem;
+  }
+
+  .lg-hero__title {
+    margin: 0;
+    font-size: 2.6rem;
+    line-height: 1.2;
+    font-weight: $boldWeight;
+    letter-spacing: -0.02em;
+    color: var(--dark);
+
+    @media all and #{$mobile} {
+      font-size: 1.9rem;
+    }
+  }
+
+  .lg-hero__sub {
+    margin: 0.7rem 0 0;
+    font-size: 1.15rem;
+    line-height: 1.6;
+    color: var(--darkgray);
+
+    @media all and #{$mobile} {
+      font-size: 1rem;
+    }
+  }
+
+  // 아카이브 진입점 — 홈에서 탐색기를 없앴으므로
+  // 이 링크가 자료로 들어가는 유일한 문이다. 눈에 띄어야 한다.
+  .lg-enter {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin: 0.8rem 0 0;
+    padding: 1.1rem 1.15rem;
+    border: 1px solid var(--lightgray);
+    border-left: 4px solid var(--secondary);
+    border-radius: 8px;
+    background-color: var(--light);
+  }
+
+  .lg-enter__link {
+    // Quartz 는 내부 링크(a.internal)에 var(--highlight) 배경을 깔아준다.
+    // .lg-enter 가 flex 컬럼이라 이 앵커가 자식으로서 전체 폭까지 늘어나고,
+    // 그 배경까지 함께 늘어나 글자 뒤로 회색 띠가 상자 끝까지 이어진다.
+    // 글자 폭만큼만 차지하게 해서 다른 내부 링크와 같은 모양으로 맞춘다.
+    align-self: flex-start;
+
+    font-size: 1.1rem;
+    font-weight: $boldWeight;
+    color: var(--secondary);
+    background-image: none;
+
+    &:hover,
+    &:focus-visible {
+      text-decoration: underline;
+    }
+  }
+
+  .lg-enter__desc {
+    font-size: 0.92rem;
+    line-height: 1.6;
+    color: var(--gray);
+  }
+
+  .lg-disclaimer {
+    margin: 2.4rem 0 0;
+    padding-top: 1rem;
+    border-top: 1px solid var(--lightgray);
+    font-size: 0.88rem;
+    line-height: 1.7;
+    color: var(--gray);
+  }
+}

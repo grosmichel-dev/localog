@@ -51,6 +51,13 @@ jobs:
       - name: 개인정보 검사
         run: node tools/lint-pii.mjs
 
+      - name: 예산 CSV 검증 (짝 meta·서명·열 존재·고아 CSV)
+        run: node tools/validate-budget-csv.mjs --content content --pairs-out .catalog-tmp/budget-pairs.json
+
+      # 카탈로그 생성보다 반드시 먼저 — 순서가 뒤집히면 예산 문서가 catalog.csv/llms.txt 에 빠진다
+      - name: 예산 페이지 생성
+        run: node tools/build-budget-pages.mjs --content content --pairs-in .catalog-tmp/budget-pairs.json --manifest .catalog-tmp/budget-manifest.json
+
       - name: 카탈로그 생성 (빌드 전 — 페이지는 임시 콘텐츠 경로로)
         run: node tools/build-catalog.mjs --content content --page-out content/_generated/catalog.md --data-out .catalog-tmp
 
@@ -66,6 +73,24 @@ jobs:
           cp .catalog-tmp/llms.txt .catalog-tmp/catalog.csv public/
           mkdir -p public/static
           cp -r static/. public/static/
+
+      - name: 예산 CSV 다운로드 발행 (검증 통과 쌍만 — 목록 밖 CSV 를 복사하면 서명 없는 원본이 공개된다)
+        run: |
+          node -e '
+            const fs = require("fs"), path = require("path");
+            const pairsFile = ".catalog-tmp/budget-pairs.json";
+            if (!fs.existsSync(pairsFile)) { console.log("예산 CSV 없음"); process.exit(0); }
+            const pairs = JSON.parse(fs.readFileSync(pairsFile, "utf8"));
+            const contentRoot = path.resolve("content");
+            for (const pair of pairs) {
+              const rel = path.relative(contentRoot, path.resolve(pair.csv));
+              const target = path.join("public", rel);
+              if (fs.existsSync(target)) { console.log("이미 발행됨 " + rel); continue; }
+              fs.mkdirSync(path.dirname(target), { recursive: true });
+              fs.copyFileSync(path.resolve(pair.csv), target);
+              console.log("복사 " + rel);
+            }
+          '
 
       - name: 산출물 검증
         run: |
@@ -97,6 +122,45 @@ jobs:
               fail "$f 가 저장소에 커밋되어 있습니다 — 카탈로그는 사이트 산출물이어야 합니다"
             fi
           done
+
+          node -e '
+            const fs = require("fs"), path = require("path");
+            const manifestFile = ".catalog-tmp/budget-manifest.json";
+            const pairsFile = ".catalog-tmp/budget-pairs.json";
+            const die = (m) => { console.error("::error::" + m); process.exit(1); };
+
+            if (fs.existsSync(pairsFile)) {
+              const contentRoot = path.resolve("content");
+              for (const pair of JSON.parse(fs.readFileSync(pairsFile, "utf8"))) {
+                const rel = path.relative(contentRoot, path.resolve(pair.csv));
+                if (!fs.existsSync(path.join("public", rel))) die("예산 CSV 다운로드가 사이트에 없습니다: " + rel);
+              }
+            }
+
+            if (!fs.existsSync(manifestFile)) { console.log("예산 페이지 없음 — 건너뜀"); process.exit(0); }
+            const generated = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+            if (generated.length === 0) { console.log("예산 페이지 없음 — 건너뜀"); process.exit(0); }
+
+            const catalog = fs.readFileSync("public/catalog.csv", "utf8");
+            const missing = [];
+            for (const file of generated) {
+              const block = /^---\r?\n([\s\S]*?)\r?\n---/m.exec(fs.readFileSync(file, "utf8"));
+              const docId = block ? (/^doc_id:\s*(.+)$/m.exec(block[1]) || [])[1] : null;
+              if (!docId || !catalog.includes(docId.trim())) missing.push(path.basename(file));
+            }
+            if (missing.length > 0) {
+              die("카탈로그에 빠진 예산 페이지: " + missing.join(", ") + " — 예산 페이지 생성이 카탈로그 생성보다 앞에 있는지 확인하세요");
+            }
+            console.log("예산 페이지 " + generated.length + "개가 카탈로그에 실림");
+          '
+
+          BUDGET_OFFENDERS=$(git ls-files content | grep -E "\.md$" | while IFS= read -r f; do
+            head -n 40 "$f" | grep -qE "^generated:[[:space:]]*true" && echo "$f"
+          done || true)
+          if [ -n "$BUDGET_OFFENDERS" ]; then
+            echo "$BUDGET_OFFENDERS"
+            fail "자동 생성 문서가 저장소에 커밋되어 있습니다 — 진본은 CSV 이고 문서는 빌드 산출물입니다"
+          fi
 
           echo "산출물 검증 통과"
 

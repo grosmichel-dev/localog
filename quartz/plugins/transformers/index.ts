@@ -1,1 +1,1 @@
-export {}
+export { BudgetTable } from "./budgetTable"

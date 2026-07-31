@@ -94,6 +94,10 @@ async function runPiiTests() {
     ['pii/public-official', 'public-official', { code: 0 }],
     ['pii/ordinary-words', 'ordinary-words', { code: 0 }],
     ['pii/strong-signals', 'strong-signals', { code: 1, includes: ['홍길동', '김철수', '이영희'] }],
+    ['pii/csv-clean', 'csv-clean', { code: 0 }],
+    ['pii/csv-structural-column', 'csv-structural-column', { code: 1, includes: ['김철수', '사업명'] }],
+    ['pii/csv-exception-ok', 'csv-exception-ok', { code: 0, includes: ['개인정보 검사 예외 1건'] }],
+    ['pii/csv-exception-no-reason', 'csv-exception-no-reason', { code: 1, includes: ['5개'] }],
   ];
   return cases.map(([name, dir, expectation]) => {
     const root = fixture('pii', dir);
@@ -160,11 +164,87 @@ async function runCatalogTests() {
   return all;
 }
 
+async function runBudgetTests() {
+  const checks = [];
+  const tmp = fixture('tmp-budget');
+  await fs.rm(tmp, { recursive: true, force: true });
+  await fs.mkdir(tmp, { recursive: true });
+
+  const validateCases = [
+    ['budget/valid', 'valid', { code: 0, includes: ['검증 완료: 1쌍'] }],
+    ['budget/hostile-input-passes-validation', 'hostile', { code: 0 }],
+    ['budget/orphan-csv-blocked', 'orphan-csv', { code: 1, includes: ['짝이 되는'] }],
+    ['budget/draft-signoff-blocked', 'draft-signoff', { code: 1, includes: ['정확히'] }],
+    ['budget/missing-column-blocked', 'missing-column', { code: 1, includes: ['가리키는 열이 CSV 에 없습니다'] }],
+    ['budget/slug-collision-blocked', 'slug-collision', { code: 1, includes: ['같은 슬러그로 겹칩니다'] }],
+  ];
+  for (const [name, dir, expectation] of validateCases) {
+    const result = runNode(script('validate-budget-csv.mjs'), ['--content', fixture('budget', dir, 'content')]);
+    checks.push(assertProcess(name, result, expectation));
+  }
+
+  checks.push(
+    assertProcess(
+      'budget/pairs-in-required',
+      runNode(script('build-budget-pages.mjs'), ['--content', fixture('budget', 'valid', 'content')]),
+      { code: 1, includes: ['--pairs-in 이 필요합니다'] },
+    ),
+  );
+
+  const work = path.join(tmp, 'hostile');
+  await fs.cp(fixture('budget', 'hostile', 'content'), path.join(work, 'content'), { recursive: true });
+  const pairsOut = path.join(tmp, 'pairs.json');
+  const contentDir = path.join(work, 'content');
+
+  checks.push(
+    assertProcess(
+      'budget/hostile-validate',
+      runNode(script('validate-budget-csv.mjs'), ['--content', contentDir, '--pairs-out', pairsOut]),
+      { code: 0 },
+    ),
+  );
+  const generate = runNode(script('build-budget-pages.mjs'), [
+    '--content', contentDir,
+    '--pairs-in', pairsOut,
+    '--manifest', path.join(tmp, 'manifest.json'),
+  ]);
+  checks.push(assertProcess('budget/hostile-generate', generate, { code: 0, includes: ['생성 완료: 4개'] }));
+
+  if (generate.status === 0) {
+    const noteDir = path.join(contentDir, '대전시', '대덕구', '예산서');
+    const env = await fs.readFile(path.join(noteDir, '2026-01-01-악성입력-환경과.md'), 'utf8');
+    const welfare = await fs.readFile(path.join(noteDir, '2026-01-01-악성입력-복지과.md'), 'utf8');
+    const construction = await fs.readFile(path.join(noteDir, '2026-01-01-악성입력-건설과.md'), 'utf8');
+    const summary = await fs.readFile(path.join(noteDir, '2026-01-01-악성입력-총괄.md'), 'utf8');
+    const tableLines = welfare.split('\n').filter((line) => line.startsWith('|')).length;
+
+    const assertions = [
+      ['budget/escape-script-tag', env.includes('&lt;script&gt;') && !env.includes('<script>'), 'script 태그가 문자로 이스케이프되지 않았습니다.'],
+      ['budget/escape-img-onerror', !env.includes('<img'), 'img 태그가 문자로 이스케이프되지 않았습니다.'],
+      ['budget/escape-pipe', welfare.includes('파이프\\|포함\\|사업'), '셀 안의 파이프가 이스케이프되지 않아 표가 깨집니다.'],
+      ['budget/escape-link-brackets', construction.includes('\\[클릭\\]') && !construction.includes('[클릭](javascript:'), '대괄호가 이스케이프되지 않아 javascript: 링크가 만들어질 수 있습니다.'],
+      ['budget/frontmatter-not-raw-html', !env.split('---')[1].includes('<script>') && !env.split('---')[1].includes('<img'), '프론트매터(keywords·title)에 CSV 의 raw HTML 이 그대로 들어갔습니다.'],
+      ['budget/newline-cell-keeps-table-shape', tableLines === 4, `개행 포함 셀이 표 구조를 깨뜨렸습니다(표 줄 수 ${tableLines}, 기대 4).`],
+      ['budget/signoff-inherited', env.includes('review_status: screened') && env.includes('pii_screened_by: fixture-reviewer'), '진본 CSV 의 서명이 생성 노트에 상속되지 않았습니다.'],
+      ['budget/stale-sentinels', env.includes('generated: true') && env.includes('generated_by: build-budget-pages') && env.includes('source_csv:') && env.includes('source_meta:'), '빌드 정리용 sentinel 필드가 빠졌습니다.'],
+      ['budget/search-reinforcement-outside-table', env.split('\n').some((line) => line.startsWith('이 문서에 포함된 항목:')), '표 바깥 검색 보강 블록이 없습니다.'],
+      ['budget/summary-marks-aggregate', summary.includes('이 사이트가 CSV 를 더해 만든 집계'), '총괄 노트가 집계임을 명시하지 않았습니다.'],
+      ['budget/summary-keeps-source-total', summary.includes('원문 전체 합계'), '총괄 노트에 원문 전체 합계 표기가 없습니다.'],
+      ['budget/total-row-flag', env.includes('budget_has_total_row:'), '합계행 여부 플래그가 없습니다.'],
+    ];
+    checks.push(...assertions.map(([name, ok, detail]) => ({ name, ok, detail: ok ? '' : detail })));
+  }
+
+  await fs.rm(tmp, { recursive: true, force: true });
+  return checks;
+}
+
 async function main() {
   const results = [
     ...(await runValidateTests()),
     ...(await runPiiTests()),
     ...(await runCatalogTests()),
+    ...(await runBudgetTests()),
   ];
   for (const result of results) {
     console.log(`${result.ok ? 'PASS' : 'FAIL'} ${result.name}`);
