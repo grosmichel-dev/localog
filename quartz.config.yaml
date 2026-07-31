@@ -176,6 +176,7 @@ plugins:
       position: left
       priority: 20
       group: toolbar
+      condition: not-index
       groupOptions:
         grow: true
   - source: "@quartz-community/backlinks"
@@ -206,12 +207,14 @@ plugins:
     layout:
       position: left
       priority: 10
+      condition: not-index
   - source: "@quartz-community/darkmode"
     enabled: true
     layout:
       position: left
       priority: 30
       group: toolbar
+      condition: not-index
   - source: "@quartz-community/reader-mode"
     enabled: true
     layout:
@@ -252,6 +255,7 @@ plugins:
       position: left
       priority: 25
       display: mobile-only
+      condition: not-index
   - source: "@quartz-community/bases-page"
     enabled: true
     options: {}
