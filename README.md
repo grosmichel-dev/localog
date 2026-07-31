@@ -5,6 +5,8 @@
 - 사람용 사이트: https://grosmichel-dev.github.io/localog
 - AI용 카탈로그: https://grosmichel-dev.github.io/localog/llms.txt
 
+> **AI가 이 저장소를 읽는 경우**: 전체 자료 목록은 위 `llms.txt` 주소에 있습니다. 카탈로그는 저장소에 커밋하지 않고 사이트에만 게시하므로, 목록이 필요하면 그 주소를 가져오세요.
+
 첫 대상은 **대전시 대덕구**(구청·구의회)이며, 지역은 폴더로 늘려 갑니다.
 
 ---
