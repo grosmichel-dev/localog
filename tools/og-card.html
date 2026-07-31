@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>localog OG card</title>
+    <!--
+      카카오톡·트위터 등 링크 공유 미리보기에 쓰는 카드 원본.
+
+      쓰는 법 (재생성 절차):
+        1. 이 파일을 브라우저(또는 Playwright)로 연다
+        2. 뷰포트를 정확히 1200x630 으로 맞춘다
+        3. 스크린샷을 PNG 로 떠서 static/og-card-vN.png 로 저장한다
+
+      ★ 이미지를 바꿀 때는 반드시 파일명 버전을 올린다 (v1 -> v2).
+        카카오는 og:image 로 캐시한 썸네일을 캐시 초기화 도구로 지워주지 않아서,
+        URL 자체가 바뀌지 않으면 옛 이미지가 계속 뜬다.
+        (근거: devtalk.kakao.com/t/topic/148191 — 카카오 운영자 답변)
+
+      ★ 웹폰트를 쓰지 않는다. 오프라인/CI 렌더에서 폰트를 못 받아오면
+        한글이 두부(□)로 깨진 채 그대로 카톡에 박힌다.
+
+      ★ 색은 quartz.config.yaml 의 theme.colors.lightMode 값을 그대로 옮겨 적었다.
+        이 파일은 사이트 CSS 변수를 쓸 수 없으므로 하드코딩이 불가피하다.
+        사이트 팔레트를 바꾸면 여기도 함께 바꿔야 한다.
+          light     #faf8f8
+          dark      #2b2b2b
+          darkgray  #4e4e4e
+          lightgray #e5e5e5
+          secondary #284b63
+          tertiary  #84a59d
+    -->
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+      }
+
+      body {
+        /* 웹폰트 금지 — 시스템 한글 폰트만 쓴다 */
+        font-family:
+          "Pretendard",
+          "Apple SD Gothic Neo",
+          "Malgun Gothic",
+          "맑은 고딕",
+          "Noto Sans KR",
+          "Nanum Gothic",
+          sans-serif;
+        background-color: #faf8f8;
+        color: #2b2b2b;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        /* 안전 여백 — 카톡이 가장자리를 잘라도 글자가 살아남는다 */
+        padding: 80px 90px;
+        position: relative;
+      }
+
+      /* 왼쪽 액센트 바 */
+      body::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 18px;
+        height: 630px;
+        background-color: #284b63;
+      }
+
+      .wordmark {
+        font-size: 34px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        color: #284b63;
+        margin-bottom: 26px;
+      }
+
+      .title {
+        font-size: 88px;
+        font-weight: 800;
+        line-height: 1.18;
+        letter-spacing: -0.03em;
+        color: #2b2b2b;
+      }
+
+      .rule {
+        width: 96px;
+        height: 6px;
+        border-radius: 3px;
+        background-color: #84a59d;
+        margin: 34px 0 30px;
+      }
+
+      .subtitle {
+        font-size: 36px;
+        font-weight: 500;
+        line-height: 1.45;
+        color: #4e4e4e;
+      }
+
+      .footnote {
+        position: absolute;
+        left: 90px;
+        bottom: 62px;
+        font-size: 26px;
+        font-weight: 500;
+        color: #84a59d;
+        letter-spacing: -0.01em;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wordmark">localog</div>
+    <div class="title">우리 동네 행정 아카이브</div>
+    <div class="rule"></div>
+    <div class="subtitle">대전 대덕구 회의록·공고·고시를 AI로 물어보세요</div>
+    <div class="footnote">누구나 무료로 보는 비영리 시민 아카이브</div>
+  </body>
+</html>

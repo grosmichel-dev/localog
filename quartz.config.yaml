@@ -82,6 +82,7 @@ plugins:
     layout:
       position: right
       priority: 30
+      condition: not-index
   - source: "@quartz-community/crawl-links"
     enabled: true
     options:
@@ -162,11 +163,13 @@ plugins:
     layout:
       position: left
       priority: 50
+      condition: not-index
   - source: "@quartz-community/graph"
     enabled: true
     layout:
       position: right
       priority: 10
+      condition: not-index
   - source: "@quartz-community/search"
     enabled: true
     layout:
@@ -180,16 +183,19 @@ plugins:
     layout:
       position: right
       priority: 50
+      condition: not-index
   - source: "@quartz-community/article-title"
     enabled: true
     layout:
       position: beforeBody
       priority: 10
+      condition: not-index
   - source: "@quartz-community/content-meta"
     enabled: true
     layout:
       position: beforeBody
       priority: 20
+      condition: not-index
   - source: "@quartz-community/tag-list"
     enabled: false
     layout:
@@ -212,6 +218,7 @@ plugins:
       position: left
       priority: 35
       group: toolbar
+      condition: not-index
   - source: "@quartz-community/breadcrumbs"
     enabled: true
     layout:
@@ -253,8 +260,9 @@ plugins:
     enabled: true
     options:
       includeAll: false
+      # description 은 검색결과·공유 미리보기용 메타데이터라 화면에는 띄우지 않는다
+      # (넣으면 제목 바로 아래 Properties 상자로 노출되어 본문이 밀린다)
       includedProperties:
-        - description
         - tags
         - aliases
       excludedProperties: []
