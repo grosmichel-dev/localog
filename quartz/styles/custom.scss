@@ -1,3 +1,81 @@
 @use "./variables.scss" as *;
 
-// put your custom CSS here!
+.lg-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.9rem;
+  margin: 1.6rem 0 0.9rem;
+
+  @media all and #{$mobile} {
+    grid-template-columns: 1fr;
+  }
+}
+
+.lg-cards > a.lg-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  min-height: 44px;
+  padding: 1.1rem 1.15rem;
+  border: 1px solid var(--lightgray);
+  border-radius: 8px;
+  background-color: var(--light);
+  color: var(--dark);
+  text-decoration: none;
+  background-image: none;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--secondary);
+    background-color: var(--highlight);
+    color: var(--dark);
+  }
+}
+
+// Quartz 는 외부 링크에 화살표 아이콘을 자동 삽입한다.
+// 세로 flex 안에서 한 줄을 통째로 차지하므로 오른쪽 위로 띄운다(바깥으로 나간다는 신호는 유지).
+.lg-cards > a.lg-card > .external-icon {
+  position: absolute;
+  top: 1.15rem;
+  right: 1.1rem;
+  opacity: 0.45;
+}
+
+.lg-card__badge {
+  font-size: 0.78rem;
+  font-weight: $semiBoldWeight;
+  color: var(--secondary);
+  border: 1px solid var(--lightgray);
+  border-radius: 999px;
+  padding: 0.12rem 0.6rem;
+}
+
+.lg-card__title {
+  font-size: 1.1rem;
+  font-weight: $boldWeight;
+  line-height: 1.35;
+}
+
+.lg-card__desc {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--darkgray);
+}
+
+.lg-note {
+  margin: 0 0 2.2rem;
+  font-size: 0.92rem;
+  line-height: 1.65;
+  color: var(--gray);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lg-cards > a.lg-card {
+    transition: none;
+  }
+}
