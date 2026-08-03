@@ -50,7 +50,9 @@ description: 대덕구 행정자료를 AI로 물어보는 세 가지 방법. 회
 
 ### 2-3. 질문 만들기가 어려우면
 
-**[조건 골라서 질문 만들기](https://grosmichel-dev.github.io/localog/static/prompt-generator.html)** — 나이대·관심 분야 같은 걸 몇 개만 고르면 질문 문장이 자동으로 만들어집니다. 복사해서 붙여넣기만 하면 됩니다.
+<!-- data-router-ignore 필수: Quartz SPA 라우터는 본문 인라인 <script> 를 재실행하지 않는다.
+     이 속성이 없으면 링크로 들어온 사용자에게 생성기가 빈 화면으로 뜨고 단추가 죽는다. -->
+**<a href="https://grosmichel-dev.github.io/localog/static/prompt-generator.html" data-router-ignore>조건 골라서 질문 만들기</a>** — 나이대·관심 분야 같은 걸 몇 개만 고르면 질문 문장이 자동으로 만들어집니다. 복사해서 붙여넣기만 하면 됩니다.
 
 ## 방법 3. MCP 연결하기 (개발자용)
 
