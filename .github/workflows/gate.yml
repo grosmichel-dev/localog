@@ -43,6 +43,20 @@ jobs:
       - name: 개인정보 검사
         run: node tools/lint-pii.mjs
 
+      # Quartz SPA 라우터는 본문 인라인 <script> 를 재실행하지 않는다.
+      # static/*.html 도구 페이지를 data-router-ignore 없이 걸면, 링크로 들어온
+      # 사용자에게는 스크립트가 죽은 빈 껍데기가 뜬다 (주소 직접 입력만 정상).
+      - name: 정적 도구 페이지 링크에 SPA 라우터 우회가 걸렸는지 확인
+        run: |
+          set -euo pipefail
+          offenders=$(grep -rn 'static/[^)"'"'"' ]*\.html' content --include='*.md' | grep -v 'data-router-ignore' || true)
+          if [ -n "$offenders" ]; then
+            echo "::error::static/*.html 링크에 data-router-ignore 가 없습니다 — Quartz SPA 라우터가 인라인 스크립트를 실행하지 않아 페이지가 죽습니다"
+            echo "$offenders"
+            exit 1
+          fi
+          echo "정적 도구 페이지 링크 확인 완료"
+
       - name: 데이터 표준 검증
         run: node tools/validate-frontmatter.mjs
 
