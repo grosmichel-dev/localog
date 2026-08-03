@@ -76,6 +76,20 @@ async function runValidateTests() {
     ['validate/duplicate-basename', 'duplicate-basename', { code: 1, includes: ['파일 이름이 중복'] }],
     ['validate/screened-without-signoff', 'screened-without-signoff', { code: 1, includes: ['screened 공개 서명 필드'] }],
     ['validate/guide-pages', 'guide-pages', { code: 0 }],
+    // 기한 필드
+    ['validate/simple-notice-dates-empty', 'simple-notice-dates-empty', { code: 0 }],
+    ['validate/event-before-start', 'event-before-start', { code: 1, includes: ['행사 시작일이 종료일보다'] }],
+    ['validate/application-start-without-deadline', 'application-start-without-deadline', { code: 1, includes: ['application_starts_at 만 있고'] }],
+    ['validate/employment-missing-application-deadline', 'employment-missing-application-deadline', { code: 1, includes: ['application_deadline 가 필요합니다'] }],
+    ['validate/event-no-dates-ok', 'event-no-dates-ok', { code: 0 }],
+    // 분류 레지스트리
+    ['validate/unknown-category-folder', 'unknown-category-folder', { code: 1, includes: ['문서분류 폴더가 표준값이 아닙니다'] }],
+    // 전사·안건
+    ['validate/transcript-missing-disclaimer', 'transcript-missing-disclaimer', { code: 1, includes: ['본문 첫 줄이 고지문이어야'] }],
+    ['validate/agenda-anchor-missing', 'agenda-anchor-missing', { code: 1, includes: ['안건 헤딩에 앵커가 없습니다'] }],
+    // 원본 보존
+    ['validate/archive-required-no-fallback', 'archive-required-no-fallback', { code: 1, includes: ['archive_url 이 필요합니다'] }],
+    ['validate/archive-required-with-fallback', 'archive-required-with-fallback', { code: 0 }],
   ];
   return cases.map(([name, dir, expectation]) => {
     const result = runNode(script('validate-frontmatter.mjs'), ['--content', fixture('validate', dir, 'content'), '--require-published']);
@@ -123,7 +137,7 @@ async function runCatalogTests() {
   const page = await fs.readFile(pageOut, 'utf8');
   const csv = await fs.readFile(path.join(dataOut, 'catalog.csv'), 'utf8');
   const llms = await fs.readFile(path.join(dataOut, 'llms.txt'), 'utf8');
-  const header = '\ufeff문서번호,날짜,부서,출처유형,제목,키워드,원문URL,아카이브URL,앵커,source_commit,generated_at,pages_url';
+  const header = '\ufeff문서번호,날짜,부서,출처유형,제목,키워드,원문URL,아카이브URL,앵커,게재시작,게재종료,신청시작,신청마감,행사시작,행사종료,source_commit,generated_at,pages_url';
   const assertions = [
     ['catalog/page-row-count', (page.match(/^\| 2026-/gm) ?? []).length === 5, '카탈로그 페이지 행 수가 5가 아닙니다.'],
     ['catalog/explicit-anchor', page.includes('[[2026-03-01-회의록#2026-03-01-구의회회의록-01-a01]]'), '명시 앵커 링크가 없습니다.'],
@@ -159,7 +173,37 @@ async function runCatalogTests() {
       { name: 'catalog/guide-only-zero-summary', ok: guideLlms.includes('현재 등록된 자료는 0건입니다'), detail: 'llms.txt 요약에 0건 안내가 없습니다.' },
     );
   }
-  const all = [...checks, ...assertions.map(([name, ok, detail]) => ({ name, ok, detail: ok ? '' : detail })), ...guideChecks];
+  // 기한이 세 산출물에 모두 실리는지. CSV 에만 있으면 AI 가 마감일을 못 본다.
+  const dateTmp = path.join(tmp, 'dates');
+  const datePageOut = path.join(dateTmp, 'catalog.md');
+  const dateDataOut = path.join(dateTmp, 'data');
+  const dateResult = runNode(script('build-catalog.mjs'), [
+    '--content', fixture('catalog', 'dates', 'content'),
+    '--page-out', datePageOut,
+    '--data-out', dateDataOut,
+  ], { GITHUB_SHA: 'fixture-sha', PAGES_URL: 'https://pages.example/localog' });
+  const dateChecks = [assertProcess('catalog/dates-command', dateResult, { code: 0 })];
+  if (dateResult.status === 0) {
+    const datePage = await fs.readFile(datePageOut, 'utf8');
+    const dateCsv = await fs.readFile(path.join(dateDataOut, 'catalog.csv'), 'utf8');
+    const dateLlms = await fs.readFile(path.join(dateDataOut, 'llms.txt'), 'utf8');
+    const everywhere = (value) => dateCsv.includes(value) && dateLlms.includes(value) && datePage.includes(value);
+    dateChecks.push(
+      { name: 'catalog/dates-application-deadline-everywhere', ok: everywhere('2026-08-05'), detail: '신청마감(2026-08-05)이 csv·llms.txt·catalog.md 세 곳에 모두 있지 않습니다.' },
+      { name: 'catalog/dates-event-start-everywhere', ok: everywhere('2026-08-10'), detail: '행사시작(2026-08-10)이 세 산출물에 모두 있지 않습니다.' },
+      { name: 'catalog/dates-event-end-everywhere', ok: everywhere('2026-08-12'), detail: '행사종료(2026-08-12)가 세 산출물에 모두 있지 않습니다.' },
+      { name: 'catalog/dates-summary-in-llms', ok: dateLlms.includes('일정: 신청 2026-08-01~2026-08-05; 행사 2026-08-10~2026-08-12'), detail: 'llms.txt 에 일정 요약 문장이 없습니다.' },
+      { name: 'catalog/stem-reference-linked', ok: sectionBody(datePage, '관련근거 연결').includes('`2026-08-04-나` → `2026-08-03-가`'), detail: 'doc_id 없는 문서를 파일명으로 가리킨 관련근거가 연결되지 않았습니다.' },
+      { name: 'catalog/stem-reference-not-pending', ok: !datePage.includes('## 근거 연결 대기'), detail: '파일명 기반 관련근거가 대기로 빠졌습니다.' },
+    );
+  }
+
+  const all = [
+    ...checks,
+    ...assertions.map(([name, ok, detail]) => ({ name, ok, detail: ok ? '' : detail })),
+    ...guideChecks,
+    ...dateChecks,
+  ];
   await fs.rm(tmp, { recursive: true, force: true });
   return all;
 }
@@ -239,11 +283,50 @@ async function runBudgetTests() {
   return checks;
 }
 
+// 로더는 하위 프로세스가 아니라 직접 불러 검사한다.
+// 레지스트리 오타가 조용히 통과하면 required_dates 강제가 통째로 사라지기 때문이다.
+async function runCategoryTests() {
+  const { loadCategories, lookupCategory } = await import('./lib/categories.mjs');
+  const checks = [];
+
+  const registry = await loadCategories();
+  checks.push({
+    name: 'categories/daedeok-loaded',
+    ok: Object.keys(registry?.['대전시']?.['대덕구'] ?? {}).length === 10,
+    detail: '대덕구 분류 10개가 적재되지 않았습니다.',
+  });
+  checks.push({
+    name: 'categories/unknown-folder-null',
+    ok: lookupCategory(registry, '대전시', '대덕구', '없는폴더') === null,
+    detail: '없는 폴더 조회가 null 이 아닙니다.',
+  });
+  checks.push({
+    name: 'categories/required-dates-loaded',
+    ok: lookupCategory(registry, '대전시', '대덕구', '채용공고')?.required_dates?.includes('application_deadline') === true,
+    detail: '채용공고의 required_dates 가 적재되지 않았습니다.',
+  });
+
+  let duplicateMessage = '';
+  try {
+    await loadCategories(fixture('categories', 'duplicate-source-type'));
+  } catch (error) {
+    duplicateMessage = String(error.message);
+  }
+  checks.push({
+    name: 'categories/duplicate-source-type',
+    ok: duplicateMessage.includes('중복') && duplicateMessage.includes('가나다') && duplicateMessage.includes('라마바'),
+    detail: `source_type 중복이 두 폴더명과 함께 보고되지 않았습니다: ${duplicateMessage || '(throw 하지 않음)'}`,
+  });
+
+  return checks;
+}
+
 async function main() {
   const results = [
     ...(await runValidateTests()),
     ...(await runPiiTests()),
     ...(await runCatalogTests()),
+    ...(await runCategoryTests()),
     ...(await runBudgetTests()),
   ];
   for (const result of results) {
