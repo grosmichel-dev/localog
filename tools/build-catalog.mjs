@@ -2,6 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { classifyContentFile } from './lib/classify.mjs';
+import { loadCategories, lookupCategory } from './lib/categories.mjs';
+import { findAgendaItems } from './lib/agenda.mjs';
 
 function usage() {
   return `카탈로그 생성기
@@ -141,20 +143,24 @@ function derivePathInfo(contentRoot, file) {
   };
 }
 
-function findAgendaItems(body, docId) {
-  const items = [];
-  const lines = body.split(/\r?\n/);
-  for (const line of lines) {
-    const heading = /^(#{1,6})\s+(.+?)\s*$/.exec(line);
-    if (!heading || !/(제\s*\d+\s*호|안건\s*\d+|○\s*안건)/.test(heading[2])) continue;
-    const number = items.length + 1;
-    const suffix = `a${String(number).padStart(2, '0')}`;
-    const explicit = /\{#([^}]+)\}/.exec(heading[2]);
-    const anchor = explicit ? explicit[1] : (docId ? `${docId}-${suffix}` : suffix);
-    const title = heading[2].replace(/\s*\{#[^}]+\}\s*$/, '').trim();
-    items.push({ title, anchor });
-  }
-  return items;
+// 값이 있는 구간만 이어붙인다. 하나도 없으면 빈 문자열을 돌려 출력에서 통째로 뺀다.
+function spanText(start, end) {
+  if (start && end) return `${start}~${end}`;
+  if (start) return `${start}~`;
+  if (end) return `~${end}`;
+  return '';
+}
+
+// AI 가 실제로 읽는 건 llms.txt 다. 날짜를 CSV 에만 넣으면 주민 질문에 답할 근거가 전달되지 않는다.
+function dateSummary(row) {
+  const parts = [];
+  const application = spanText(row.applicationStartsAt, row.applicationDeadline);
+  if (application) parts.push(`신청 ${application}`);
+  const event = spanText(row.eventStartsAt, row.eventEndsAt);
+  if (event) parts.push(`행사 ${event}`);
+  const posting = spanText(row.postingStartsAt, row.postingEndsAt);
+  if (posting) parts.push(`게재 ${posting}`);
+  return parts.length > 0 ? `일정: ${parts.join('; ')}` : '';
 }
 
 function asArray(value) {
@@ -175,12 +181,14 @@ async function readDocs(contentRoot) {
   return docs;
 }
 
-function docRows(docs) {
+function docRows(docs, registry) {
   const rows = [];
   for (const doc of docs) {
     const data = doc.data;
+    // doc_id 가 없으면 파일명이 곧 ID 다. 빈칸으로 두면 인용도 근거연결도 끊긴다.
+    const recordId = data.doc_id || doc.stem;
     const base = {
-      docId: data.doc_id ?? '',
+      docId: recordId,
       date: data.date ?? '',
       department: data.department ?? '',
       sourceType: data.source_type ?? '',
@@ -188,12 +196,20 @@ function docRows(docs) {
       keywords: asArray(data.keywords).join(', '),
       sourceUrl: data.source_url ?? '',
       archiveUrl: data.archive_url ?? '',
+      postingStartsAt: data.posting_starts_at ?? '',
+      postingEndsAt: data.posting_ends_at ?? '',
+      applicationStartsAt: data.application_starts_at ?? '',
+      applicationDeadline: data.application_deadline ?? '',
+      eventStartsAt: data.event_starts_at ?? '',
+      eventEndsAt: data.event_ends_at ?? '',
       sigungu: doc.sigungu,
       category: doc.category,
       stem: doc.stem,
       rel: doc.rel,
     };
-    const agendas = data.source_type === '구의회 회의록' ? findAgendaItems(doc.body, data.doc_id ?? '') : [];
+    base.dateSummary = dateSummary(base);
+    const rule = lookupCategory(registry, doc.sido, doc.sigungu, doc.category);
+    const agendas = rule?.agenda === true ? findAgendaItems(doc.body, recordId) : [];
     if (agendas.length === 0) {
       rows.push({ ...base, rowTitle: base.title, anchor: '' });
     } else {
@@ -218,12 +234,14 @@ function csvCell(value) {
   return `"${text.replace(/"/g, '""')}"`;
 }
 
+// 색인 키는 doc_id 가 아니라 record_id 다. doc_id 로만 색인하면 internal 분류 문서를
+// 파일명으로 가리킨 관련근거가 영원히 pending 으로 빠지고, 연결이 조용히 실패한다.
 function resolveReferences(docs) {
-  const byDocId = new Map(docs.filter((doc) => typeof doc.data.doc_id === 'string' && doc.data.doc_id).map((doc) => [doc.data.doc_id, doc]));
+  const byDocId = new Map(docs.map((doc) => [doc.data.doc_id || doc.stem, doc]));
   const linked = [];
   const pending = [];
   for (const doc of docs) {
-    const source = doc.data.doc_id ?? doc.stem;
+    const source = doc.data.doc_id || doc.stem;
     for (const ref of asArray(doc.data['관련근거'])) {
       if (byDocId.has(ref)) linked.push({ source, target: ref });
       else pending.push({ source, target: ref });
@@ -275,10 +293,10 @@ function catalogMarkdown(rows, refs) {
   if (rows.length === 0) {
     lines.push('아직 등록된 자료가 없습니다.');
   } else {
-    lines.push('| 날짜 | 시군구 | 분류 | 부서 | 제목/안건명 | 키워드 | 링크 |', '|---|---|---|---|---|---|---|');
+    lines.push('| 날짜 | 시군구 | 분류 | 부서 | 제목/안건명 | 키워드 | 일정 | 링크 |', '|---|---|---|---|---|---|---|---|');
   }
   for (const row of rows) {
-    lines.push(`| ${mdCell(row.date)} | ${mdCell(row.sigungu)} | ${mdCell(row.category)} | ${mdCell(row.department)} | ${mdCell(row.rowTitle)} | ${mdCell(row.keywords)} | ${wikiLink(row)} |`);
+    lines.push(`| ${mdCell(row.date)} | ${mdCell(row.sigungu)} | ${mdCell(row.category)} | ${mdCell(row.department)} | ${mdCell(row.rowTitle)} | ${mdCell(row.keywords)} | ${mdCell(row.dateSummary)} | ${wikiLink(row)} |`);
   }
   if (refs.linked.length > 0) {
     lines.push('', '## 관련근거 연결');
@@ -293,7 +311,9 @@ function catalogMarkdown(rows, refs) {
 }
 
 function catalogCsv(rows, meta) {
-  const header = '문서번호,날짜,부서,출처유형,제목,키워드,원문URL,아카이브URL,앵커,source_commit,generated_at,pages_url';
+  // 메타데이터 3열은 반드시 맨 뒤에 유지한다. 새 열은 앵커 뒤에 넣는다.
+  // 이 문자열을 바꾸면 tools/run-tests.mjs 의 header 상수도 함께 바꿔야 한다.
+  const header = '문서번호,날짜,부서,출처유형,제목,키워드,원문URL,아카이브URL,앵커,게재시작,게재종료,신청시작,신청마감,행사시작,행사종료,source_commit,generated_at,pages_url';
   const lines = [header];
   for (const row of rows) {
     lines.push([
@@ -306,6 +326,12 @@ function catalogCsv(rows, meta) {
       row.sourceUrl,
       row.archiveUrl,
       row.anchor,
+      row.postingStartsAt,
+      row.postingEndsAt,
+      row.applicationStartsAt,
+      row.applicationDeadline,
+      row.eventStartsAt,
+      row.eventEndsAt,
       meta.sourceCommit,
       meta.generatedAt,
       meta.pagesUrl,
@@ -348,7 +374,10 @@ function llmsText(rows, meta, guides, recordCount) {
     ...linkList('분류별', categories.map((name) => [name, catalogUrl(meta.pagesUrl, `분류별-${name}`)])),
     ...linkList('연도별', years.map((year) => [year, catalogUrl(meta.pagesUrl, `연도별-${year}`)])),
     '## 문서별',
-    ...rows.map((row) => `- [${row.rowTitle}](${contentUrl(meta.pagesUrl, row.rel)}${row.anchor ? `#${encodeURIComponent(row.anchor)}` : ''})`),
+    ...rows.map((row) => {
+      const link = `- [${row.rowTitle}](${contentUrl(meta.pagesUrl, row.rel)}${row.anchor ? `#${encodeURIComponent(row.anchor)}` : ''})`;
+      return row.dateSummary ? `${link} — ${row.dateSummary}` : link;
+    }),
     '',
     ...linkList('안내', guideEntries(guides, meta.pagesUrl)),
   ];
@@ -373,10 +402,11 @@ async function main() {
     const contentRoot = path.resolve(args.content);
     const pageOut = path.resolve(args.pageOut);
     const dataOut = path.resolve(args.dataOut);
+    const registry = await loadCategories();
     const docs = await readDocs(contentRoot);
     const recordDocs = docs.filter((doc) => doc.kind === 'record');
     const guideDocs = docs.filter((doc) => doc.kind === 'guide');
-    const rows = docRows(recordDocs);
+    const rows = docRows(recordDocs, registry);
     const refs = resolveReferences(recordDocs);
     const meta = { sourceCommit: sourceCommit(), generatedAt: new Date().toISOString(), pagesUrl: await pagesUrl() };
     await fs.mkdir(path.dirname(pageOut), { recursive: true });

@@ -1,0 +1,78 @@
+# 대전광역시 대덕구 문서분류 레지스트리
+#
+# 이 파일이 분류의 정본이다. 검증기·카탈로그·예산 도구가 전부 여기를 읽는다.
+# 새 게시판을 추가하려면 여기에 항목 하나를 넣고 content/ 아래 같은 이름의 폴더를 만들면 된다.
+# 다른 시군구는 config/categories/<시도>/<시군구>.yaml 로 따로 만든다. 이 파일은 건드리지 않는다.
+#
+# 키 뜻
+#   source_type    프론트매터에 적을 값 (폴더명과 달라도 된다)
+#   doc_id         official = 행정 문서번호 필수 / internal = 파일명이 곧 ID
+#   archive        required = archive_url 또는 archive_status 탈출구 필수 / optional / none
+#   dates          이 분류에서 주로 쓰는 날짜 필드 (옵시디언 템플릿 생성용, 강제 아님)
+#   required_dates 비면 CI 가 막는 날짜 필드. dates 의 부분집합이어야 한다.
+#                  원천 게시판이 그 값을 실제로 제공하는 분류에만 건다 (2026-08-03 실측 기준)
+#   agenda         true = 안건 앵커 필수, 카탈로그가 안건 단위로 행을 만든다
+#   transcript     true = transcript_source + 고지문 + 정정 표 필수
+#   csv_pair       true = CSV 진본 + .meta.yaml 짝 규약 (예산서)
+
+구청공지사항:
+  source_type: 구청 공지사항
+  doc_id: internal
+  archive: required
+
+고시공고:
+  source_type: 고시공고
+  doc_id: official
+  archive: required
+  dates: [posting_starts_at, posting_ends_at]
+  required_dates: [posting_starts_at, posting_ends_at]
+
+입찰공고:
+  source_type: 입찰공고
+  doc_id: official
+  archive: required
+  dates: [posting_starts_at, posting_ends_at]
+  required_dates: [posting_starts_at, posting_ends_at]
+
+도시계획고시공고:
+  source_type: 도시계획고시공고
+  doc_id: internal
+  archive: required
+
+채용공고:
+  source_type: 채용공고
+  doc_id: internal
+  archive: required
+  dates: [application_starts_at, application_deadline]
+  required_dates: [application_deadline]
+
+행사소식:
+  source_type: 행사소식
+  doc_id: internal
+  archive: optional
+  dates: [event_starts_at, event_ends_at, application_deadline]
+
+보도해명:
+  source_type: 보도해명
+  doc_id: internal
+  archive: optional
+
+구청장회의:
+  source_type: 구청장회의(유튜브)
+  doc_id: internal
+  archive: none
+  agenda: true
+  transcript: true
+
+구의회회의록:
+  source_type: 구의회 회의록
+  doc_id: internal
+  archive: none
+  agenda: true
+  transcript: true
+
+예산서:
+  source_type: 예산서
+  doc_id: internal
+  archive: none
+  csv_pair: true

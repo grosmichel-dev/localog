@@ -57,6 +57,57 @@ jobs:
           fi
           echo "정적 도구 페이지 링크 확인 완료"
 
+      # record_id 는 doc_id 가 없으면 파일명에서 나온다. 발행된 문서의 이름을 바꾸면
+      # 관련근거 연결과 안건 앵커가 함께 끊긴다. aliases 는 옛 주소만 살릴 뿐 record_id 는 못 살린다.
+      - name: 발행된 기록문서의 파일명이 바뀌지 않았는지 확인
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "PR 이벤트가 아니므로 건너뜁니다."
+            exit 0
+          fi
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+
+          ALLOW=0
+          if printf '%s' "${PR_BODY:-}" | grep -q 'ALLOW-RECORD-RENAME'; then ALLOW=1; fi
+          if git log --format=%B "$BASE".."$HEAD" | grep -q 'ALLOW-RECORD-RENAME'; then ALLOW=1; fi
+
+          # content/ 는 전부 한글 경로다. quotePath 를 끄지 않으면 git 이 8진수로 이스케이프해
+          # 뒤의 git show 가 파일을 못 찾는다.
+          offenders=""
+          while IFS=$'\t' read -r status old new; do
+            case "$status" in
+              R*|D) ;;
+              *) continue ;;
+            esac
+            case "$old" in
+              */index.md) continue ;;
+              content/*/*/*/*.md) ;;
+              *) continue ;;
+            esac
+            # case 의 * 는 / 도 먹으므로 깊이를 따로 고정한다 (기록문서는 정확히 4단계)
+            depth=$(printf '%s' "$old" | awk -F/ '{print NF}')
+            [ "$depth" -eq 5 ] || continue
+            if git show "$BASE:$old" 2>/dev/null \
+              | grep -Eq '^review_status:[[:space:]]*screened([[:space:]]|$)'; then
+              offenders="${offenders}${status} ${old}"$'\n'
+            fi
+          done < <(git -c core.quotePath=false diff --name-status --find-renames "$BASE" "$HEAD" -- content/)
+
+          if [ -n "$offenders" ]; then
+            printf '%s' "$offenders"
+            if [ "$ALLOW" -eq 1 ]; then
+              echo "::warning::발행된 기록문서의 이름이 바뀌었지만 ALLOW-RECORD-RENAME 이 있어 통과시킵니다"
+            else
+              echo "::error::발행된(screened) 기록문서의 파일명을 바꾸거나 지웠습니다 — record_id 가 파일명에서 나오므로 관련근거 연결과 안건 앵커가 함께 깨집니다. 정말 필요하면 커밋 메시지나 PR 본문에 ALLOW-RECORD-RENAME 을 넣으세요."
+              exit 1
+            fi
+          fi
+          echo "기록문서 파일명 확인 완료"
+
       - name: 데이터 표준 검증
         run: node tools/validate-frontmatter.mjs
 

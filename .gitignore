@@ -13,6 +13,9 @@ quartz/cli/tui/dist/
 .turbo/
 private/
 
+# 내부 기획·초안 폴더. 공개 대상이 아니다.
+.omo/
+
 # content/_generated/ 는 여기 넣지 말 것 — Quartz 가 .gitignore 를 존중해
 # 카탈로그 페이지를 통째로 건너뛴다. 커밋 방지는 CI 의 git ls-files 검사가 담당한다.
 .catalog-tmp/

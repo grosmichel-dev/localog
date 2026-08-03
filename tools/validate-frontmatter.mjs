@@ -1,17 +1,19 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { classifyContentFile } from './lib/classify.mjs';
+import { loadCategories, lookupCategory, allSourceTypes, DATE_FIELDS } from './lib/categories.mjs';
+import { findAgendaItems } from './lib/agenda.mjs';
 
-const SOURCE_TYPES = new Set(['구청 공지사항', '고시공고', '구청장회의(유튜브)', '구의회 회의록', '예산서']);
-const FOLDER_SOURCE_TYPES = new Map([
-  ['구청공지사항', '구청 공지사항'],
-  ['고시공고', '고시공고'],
-  ['구청장회의', '구청장회의(유튜브)'],
-  ['구의회회의록', '구의회 회의록'],
-  // 예산서는 enum 과 폴더 매핑을 함께 넣어야 한다. 하나만 넣으면
-  // "문서분류 폴더가 표준값이 아닙니다" 로 예산서 폴더 전체가 반려된다.
-  ['예산서', '예산서'],
-]);
+// 분류의 정본은 config/categories/<시도>/<시군구>.yaml 이다.
+// 여기에 목록을 다시 두면 두 곳이 어긋나므로 상수로 갖지 않는다.
+
+const TRANSCRIPT_SOURCES = new Set(['youtube-auto-caption', 'official-minutes', 'manual']);
+const TRANSCRIPT_NOTICE = '> 이 문서는 공식 회의록이 아니라 공개 영상·자동자막을 바탕으로 만든 시민 전사본입니다.';
+const DATE_PAIRS = [
+  ['posting_starts_at', 'posting_ends_at', '게재'],
+  ['event_starts_at', 'event_ends_at', '행사'],
+  ['application_starts_at', 'application_deadline', '신청'],
+];
 
 function usage() {
   return `프론트매터 검증기
@@ -148,8 +150,13 @@ function lineOf(parsed, field) {
   return parsed.lines[field] ?? 1;
 }
 
+// 프론트매터 파서는 값이 빈 칸(`field:`)이면 [] 로 만든다.
+// 이걸 "값이 있다"로 보면, 템플릿 안내대로 선택 날짜 칸을 비운 문서가 형식 오류로 반려되고
+// 필수 칸을 비운 문서는 "필수" 대신 엉뚱한 형식 오류를 받는다. 빈 배열은 값이 없는 것이다.
 function hasValue(value) {
-  return typeof value === 'string' ? value.trim().length > 0 : value !== undefined && value !== null;
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (Array.isArray(value)) return value.length > 0;
+  return value !== undefined && value !== null;
 }
 
 function isHttpUrl(value) {
@@ -168,6 +175,19 @@ function isNormalizedDocId(value) {
     && !/[\s()（）]/.test(value)
     && !/--+/.test(value)
     && !/^-|-$/.test(value);
+}
+
+function isYmd(value) {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+// 고지문은 파일 첫 줄이 아니라 frontmatter 를 걷어낸 본문 첫 줄에서 찾아야 한다.
+// 파일 첫 줄은 항상 '---' 이기 때문이다.
+function firstBodyLine(parsed) {
+  for (const line of String(parsed.body ?? '').split(/\r?\n/)) {
+    if (line.trim()) return line.trim();
+  }
+  return '';
 }
 
 function addMessage(messages, file, line, reason) {
@@ -191,7 +211,103 @@ function validateGuidePage(doc, errors) {
   if (!hasValue(parsed.data.title)) addMessage(errors, file, lineOf(parsed, 'title'), '안내 페이지에는 title 필드가 필요합니다.');
 }
 
-function validateDocument(doc, contentRoot, requirePublished, errors, warnings) {
+// 원천 게시판 주소는 자주 사라진다. 사본을 남기거나, 남길 수 없었다는 사실을 기록해야 한다.
+function validateArchivePolicy(doc, rule, category, errors) {
+  if (rule.archive !== 'required') return;
+  const { file, parsed } = doc;
+  const data = parsed.data;
+  if (hasValue(data.archive_url)) return;
+
+  const escaped = data.archive_status === 'unavailable'
+    && isYmd(data.source_checked_at)
+    && hasValue(data.archive_note);
+  if (escaped) return;
+
+  addMessage(
+    errors,
+    file,
+    lineOf(parsed, 'archive_url'),
+    `${category}는 archive_url 이 필요합니다. 웹아카이브가 불가능했다면 `
+      + 'archive_status: unavailable + source_checked_at(YYYY-MM-DD) + archive_note 를 함께 적으세요.',
+  );
+}
+
+function validateDates(doc, rule, category, errors, warnings) {
+  const { file, parsed } = doc;
+  const data = parsed.data;
+
+  for (const field of DATE_FIELDS) {
+    if (hasValue(data[field]) && !isYmd(data[field])) {
+      addMessage(errors, file, lineOf(parsed, field), `${field}는 YYYY-MM-DD 형식이어야 합니다.`);
+    }
+  }
+
+  for (const [startField, endField, label] of DATE_PAIRS) {
+    const start = data[startField];
+    const end = data[endField];
+    if (isYmd(start) && isYmd(end) && start > end) {
+      addMessage(errors, file, lineOf(parsed, startField), `${label} 시작일이 종료일보다 늦습니다: ${start} > ${end}`);
+    }
+  }
+
+  if (hasValue(data.application_starts_at) && !hasValue(data.application_deadline)) {
+    addMessage(errors, file, lineOf(parsed, 'application_starts_at'), 'application_starts_at 만 있고 application_deadline 이 없습니다. 시작만 있는 신청 기간은 뜻이 없습니다.');
+  }
+
+  // 지난 공고를 나중에 올리는 경우가 있어 차단하지 않는다.
+  if (isYmd(data.application_deadline) && isYmd(data.date) && data.application_deadline < data.date) {
+    addMessage(warnings, file, lineOf(parsed, 'application_deadline'), `신청 마감일(${data.application_deadline})이 게시일(${data.date})보다 앞섭니다.`);
+  }
+
+  // 원천 게시판이 그 값을 실제로 제공하는 분류에만 걸려 있다.
+  // 이게 없으면 채용공고에 마감일이 빠진 채 발행돼도 아무도 모른다.
+  for (const field of rule.required_dates ?? []) {
+    if (!hasValue(data[field])) {
+      addMessage(errors, file, lineOf(parsed, field), `${category}는 ${field} 가 필요합니다.`);
+    }
+  }
+}
+
+function validateTranscript(doc, rule, recordId, errors) {
+  const { file, parsed } = doc;
+  const data = parsed.data;
+
+  if (rule.transcript === true) {
+    if (!hasValue(data.transcript_source)) {
+      addMessage(errors, file, lineOf(parsed, 'transcript_source'), `${[...TRANSCRIPT_SOURCES].join('|')} 중 하나로 transcript_source 를 적어야 합니다.`);
+    } else if (!TRANSCRIPT_SOURCES.has(data.transcript_source)) {
+      addMessage(errors, file, lineOf(parsed, 'transcript_source'), `transcript_source 허용값이 아닙니다: ${data.transcript_source}`);
+    }
+
+    if (!String(data.screening_scope ?? '').includes('transcript')) {
+      addMessage(errors, file, lineOf(parsed, 'screening_scope'), '전사본은 screening_scope 에 transcript 를 포함해야 합니다.');
+    }
+
+    if (data.transcript_source === 'youtube-auto-caption') {
+      if (firstBodyLine(parsed) !== TRANSCRIPT_NOTICE) {
+        addMessage(errors, file, parsed.bodyStartLine ?? 1, `자동자막 전사본은 본문 첫 줄이 고지문이어야 합니다: ${TRANSCRIPT_NOTICE}`);
+      }
+      const body = String(parsed.body ?? '');
+      if (!body.includes('## 정정 표') && !body.includes('정정 없음')) {
+        addMessage(errors, file, parsed.bodyStartLine ?? 1, '자동자막 전사본은 "## 정정 표" 절 또는 "정정 없음" 표기가 필요합니다.');
+      }
+    }
+  }
+
+  if (rule.agenda === true) {
+    const items = findAgendaItems(parsed.body, recordId);
+    const shape = new RegExp(`^${recordId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-a\\d{2}$`);
+    for (const item of items) {
+      if (!item.explicit) {
+        addMessage(errors, file, parsed.bodyStartLine ?? 1, `안건 헤딩에 앵커가 없습니다: "${item.heading}" → {#${recordId}-aNN} 를 붙이세요.`);
+      } else if (!shape.test(item.anchor)) {
+        addMessage(errors, file, parsed.bodyStartLine ?? 1, `안건 앵커 형식이 맞지 않습니다: ${item.anchor} (기대: ${recordId}-aNN)`);
+      }
+    }
+  }
+}
+
+function validateDocument(doc, contentRoot, requirePublished, errors, warnings, registry) {
   const { file, parsed } = doc;
   const data = parsed.data;
   if (doc.guidePage) {
@@ -207,9 +323,6 @@ function validateDocument(doc, contentRoot, requirePublished, errors, warnings) 
   if (hasValue(data.date) && !/^\d{4}-\d{2}-\d{2}$/.test(data.date)) {
     addMessage(errors, file, lineOf(parsed, 'date'), 'date는 YYYY-MM-DD 형식이어야 합니다.');
   }
-  if (hasValue(data.source_type) && !SOURCE_TYPES.has(data.source_type)) {
-    addMessage(errors, file, lineOf(parsed, 'source_type'), `source_type 허용값이 아닙니다: ${data.source_type}`);
-  }
   if (!Array.isArray(data.keywords)) {
     addMessage(errors, file, lineOf(parsed, 'keywords'), 'keywords는 배열이어야 합니다. 예: [청년, 공고]');
   } else if (data.keywords.length > 8) {
@@ -220,18 +333,32 @@ function validateDocument(doc, contentRoot, requirePublished, errors, warnings) 
   }
 
   const parts = path.relative(contentRoot, file).split(path.sep);
-  const category = parts[2];
-  const expectedType = FOLDER_SOURCE_TYPES.get(category);
-  if (!expectedType) {
+  const [sido, sigungu, category] = parts;
+  const rule = lookupCategory(registry, sido, sigungu, category);
+
+  // 폴더를 먼저 판정한다. 폴더를 모르면 어떤 source_type 이 맞는지도 말할 수 없으므로
+  // 여기서 끝내고 아래 규칙들은 건너뛴다. (같은 원인으로 오류가 두 번 보고되지 않게)
+  if (!rule) {
     addMessage(errors, file, 1, `문서분류 폴더가 표준값이 아닙니다: ${category ?? '(없음)'}`);
-  } else if (hasValue(data.source_type) && data.source_type !== expectedType) {
-    addMessage(errors, file, lineOf(parsed, 'source_type'), `폴더(${category})와 source_type(${data.source_type})이 일치하지 않습니다. 기대값: ${expectedType}`);
+    return;
   }
 
-  if (data.source_type === '고시공고' || data.source_type === '구청 공지사항') {
-    if (!hasValue(data.doc_id)) addMessage(errors, file, lineOf(parsed, 'doc_id'), '고시공고/구청 공지사항은 doc_id가 필요합니다.');
-    if (!hasValue(data.archive_url)) addMessage(errors, file, lineOf(parsed, 'archive_url'), '고시공고/구청 공지사항은 archive_url이 필요합니다.');
+  if (hasValue(data.source_type) && !allSourceTypes(registry, sido, sigungu).has(data.source_type)) {
+    addMessage(errors, file, lineOf(parsed, 'source_type'), `source_type 허용값이 아닙니다: ${data.source_type}`);
+  } else if (hasValue(data.source_type) && data.source_type !== rule.source_type) {
+    addMessage(errors, file, lineOf(parsed, 'source_type'), `폴더(${category})와 source_type(${data.source_type})이 일치하지 않습니다. 기대값: ${rule.source_type}`);
   }
+
+  // 인용·근거연결·안건 앵커가 모두 이 값을 쓴다. doc_id 가 없으면 파일명이 곧 ID 다.
+  const recordId = hasValue(data.doc_id) ? data.doc_id : path.basename(file, '.md');
+
+  if (rule.doc_id === 'official' && !hasValue(data.doc_id)) {
+    addMessage(errors, file, lineOf(parsed, 'doc_id'), `${category}는 행정 문서번호(doc_id)가 필요합니다.`);
+  }
+
+  validateArchivePolicy(doc, rule, category, errors);
+  validateDates(doc, rule, category, errors, warnings);
+  validateTranscript(doc, rule, recordId, errors);
   if (hasValue(data.doc_id) && !isNormalizedDocId(data.doc_id)) {
     addMessage(errors, file, lineOf(parsed, 'doc_id'), 'doc_id가 정규화 형식이 아닙니다. 공백/괄호 없이 단일 하이픈(-)으로 구분해야 합니다.');
   }
@@ -288,8 +415,9 @@ async function main() {
   const errors = [];
   const warnings = [];
   try {
+    const registry = await loadCategories();
     const docs = await readDocuments(contentRoot);
-    for (const doc of docs) validateDocument(doc, contentRoot, args.requirePublished, errors, warnings);
+    for (const doc of docs) validateDocument(doc, contentRoot, args.requirePublished, errors, warnings, registry);
     validateDuplicates(docs, errors);
   } catch (error) {
     console.error(`검증 중 오류가 발생했습니다: ${error.message}`);

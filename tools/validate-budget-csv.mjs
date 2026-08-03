@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { loadCategories, lookupCategory } from './lib/categories.mjs';
 import {
   parseCsv,
   headerProblems,
@@ -143,6 +144,7 @@ async function main() {
   const add = (file, reason) => errors.push(`${display(file)} — ${reason}`);
 
   try {
+    const registry = await loadCategories();
     const metaFiles = await walk(contentRoot, (name) => name.endsWith(META_SUFFIX));
     const csvFiles = await walk(contentRoot, (name) => name.toLowerCase().endsWith('.csv'));
     const existing = await collectExisting(contentRoot);
@@ -201,8 +203,15 @@ async function main() {
       if (nonEmpty(meta.source_url) && !isHttpUrl(meta.source_url)) {
         add(metaFile, 'source_url 은 http:// 또는 https:// 로 시작해야 합니다.');
       }
-      if (nonEmpty(meta.source_type) && meta.source_type !== '예산서') {
-        add(metaFile, `예산 meta 의 source_type 은 '예산서' 여야 합니다. 현재: ${meta.source_type}`);
+      // '예산서' 문자열로 판정하면 다른 시군구가 다른 이름을 쓰는 순간 깨진다.
+      // 폴더에서 분류를 찾아 csv_pair 규약 대상인지 본다 (validate-frontmatter 와 동일 패턴).
+      const budgetParts = path.relative(contentRoot, metaFile).split(path.sep);
+      const budgetRule = lookupCategory(registry, budgetParts[0], budgetParts[1], budgetParts[2]);
+      if (budgetRule?.csv_pair !== true) {
+        add(metaFile, `이 폴더는 CSV 진본 규약(csv_pair) 대상이 아닙니다: ${budgetParts[2] ?? '(없음)'}`);
+        missing = true;
+      } else if (nonEmpty(meta.source_type) && meta.source_type !== budgetRule.source_type) {
+        add(metaFile, `예산 meta 의 source_type 은 '${budgetRule.source_type}' 여야 합니다. 현재: ${meta.source_type}`);
         missing = true;
       }
       if (Array.isArray(meta.keywords) && meta.keywords.length > 8) {
