@@ -150,8 +150,13 @@ function lineOf(parsed, field) {
   return parsed.lines[field] ?? 1;
 }
 
+// 프론트매터 파서는 값이 빈 칸(`field:`)이면 [] 로 만든다.
+// 이걸 "값이 있다"로 보면, 템플릿 안내대로 선택 날짜 칸을 비운 문서가 형식 오류로 반려되고
+// 필수 칸을 비운 문서는 "필수" 대신 엉뚱한 형식 오류를 받는다. 빈 배열은 값이 없는 것이다.
 function hasValue(value) {
-  return typeof value === 'string' ? value.trim().length > 0 : value !== undefined && value !== null;
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (Array.isArray(value)) return value.length > 0;
+  return value !== undefined && value !== null;
 }
 
 function isHttpUrl(value) {

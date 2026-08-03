@@ -82,6 +82,9 @@ async function runValidateTests() {
     ['validate/application-start-without-deadline', 'application-start-without-deadline', { code: 1, includes: ['application_starts_at 만 있고'] }],
     ['validate/employment-missing-application-deadline', 'employment-missing-application-deadline', { code: 1, includes: ['application_deadline 가 필요합니다'] }],
     ['validate/event-no-dates-ok', 'event-no-dates-ok', { code: 0 }],
+    // 칸은 있고 값만 빈 경우 — 파서가 [] 로 만들기 때문에 별도로 고정해야 한다
+    ['validate/blank-optional-dates-ok', 'blank-optional-dates-ok', { code: 0 }],
+    ['validate/blank-required-date', 'blank-required-date', { code: 1, includes: ['application_deadline 가 필요합니다'] }],
     // 분류 레지스트리
     ['validate/unknown-category-folder', 'unknown-category-folder', { code: 1, includes: ['문서분류 폴더가 표준값이 아닙니다'] }],
     // 전사·안건
