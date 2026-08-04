@@ -45,7 +45,7 @@ socialImage: og-card-v1.png
 
 <div class="lg-enter">
 <a class="lg-enter__link" href="대전시/대덕구/">대전시 대덕구 자료 보러 가기</a>
-<span class="lg-enter__desc">구청 공지사항 · 고시공고 · 구청장회의 · 구의회 회의록</span>
+<span class="lg-enter__desc">공지사항 · 고시공고 · 구청장회의 · 구의회 회의록</span>
 </div>
 
 <p class="lg-disclaimer">AI는 가끔 틀립니다. 중요한 내용은 반드시 출처 링크로 원문을 확인하세요. 자세한 근거와 정정·삭제 요청은 <a href="./legal">이용 안내</a>를 보세요.</p>
