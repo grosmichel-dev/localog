@@ -16,7 +16,7 @@
 #   csv_pair       true = CSV 진본 + .meta.yaml 짝 규약 (예산서)
 
 구청공지사항:
-  source_type: 구청 공지사항
+  source_type: 공지사항
   doc_id: internal
   archive: required
 
