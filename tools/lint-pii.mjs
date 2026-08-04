@@ -15,6 +15,8 @@ const ORG_SUFFIX = /(과|실|팀|국|부|청|원|소|관|단|처|본부|센터|�
 const CATEGORY_REPEAT_THRESHOLD = 3;
 const DEFAULT_EXCEPTIONS = 'docs/pii-exceptions.csv';
 const EXCEPTION_COLUMNS = ['파일', '행', '열', '값', '사유'];
+// 마크다운에는 열이 없다. 예외 파일의 5칸 계약을 깨지 않으려고 고정 값을 쓴다.
+const MARKDOWN_EXCEPTION_COLUMN = '본문';
 const SINGLE_SURNAMES = new Set('김이박최정강조윤장임한오서신권황안송류유전홍고문양손배백허남심노하곽성차주우구나민진지엄채원천방공현함변염여추도소석선설마길연위표명기반라왕금옥육인맹제모탁국어은편용'.split(''));
 const COMPOUND_SURNAMES = ['남궁', '황보', '제갈', '선우', '독고', '사공'];
 const PHONE_PATTERN = /(01\d[-\s]?\d{3,4}[-\s]?\d{4}|0\d{1,2}[-\s]?\d{3,4}[-\s]?\d{4})/;
@@ -183,11 +185,20 @@ function likelyPersonalName(line, token, start, end, forceSignal = false) {
   return tokenWithoutHonorific;
 }
 
-function lintNames(file, parsed, violations) {
+function lintNames(file, relFile, parsed, exceptions, violations) {
+  // 공지문에 부서 연락처가 있으면 그 둘레의 평범한 낱말(제출방법·신청서류 등)이 성씨로 시작한다는
+  // 이유만으로 매번 걸린다. 탐지를 느슨하게 하는 대신, CSV 와 똑같이 파일·행·값이 모두 맞는
+  // 예외만 눈감아 준다. 무엇을 눈감았는지는 실행할 때마다 로그에 남는다.
+  const allowed = new Set(
+    exceptions
+      .filter((entry) => entry.file.normalize('NFC') === relFile.normalize('NFC'))
+      .map((entry) => exceptionKey(entry.row, entry.column, entry.value)),
+  );
   const lines = parsed.body.split(/\r?\n/);
   for (let index = 0; index < lines.length; index += 1) {
     const originalLine = lines[index];
     const line = originalLine.replace(MASK_PATTERN, ' '.repeat(18));
+    const lineNumber = parsed.bodyStartLine + index;
     const candidates = line.matchAll(/[가-힣]{2,4}/g);
     for (const match of candidates) {
       const token = match[0];
@@ -196,7 +207,13 @@ function lintNames(file, parsed, violations) {
       if (isPublicOfficialContext(line, start, end)) continue;
       const name = likelyPersonalName(line, token, start, end);
       if (!name) continue;
-      addViolation(violations, file, parsed.bodyStartLine + index, `마스킹되지 않은 개인정보 후보가 있습니다: ${name}`);
+      if (allowed.has(exceptionKey(lineNumber, MARKDOWN_EXCEPTION_COLUMN, name))) continue;
+      addViolation(
+        violations,
+        file,
+        lineNumber,
+        `마스킹되지 않은 개인정보 후보가 있습니다: ${name} — 실제로 개인정보가 아니라면 예외 파일에 ${EXCEPTION_COLUMNS.join('/')} 5개를 적어 등록하세요(열은 '${MARKDOWN_EXCEPTION_COLUMN}').`,
+      );
       break;
     }
   }
@@ -438,7 +455,7 @@ async function main() {
     for (const file of markdownFiles) {
       const text = await fs.readFile(file, 'utf8');
       const parsed = parseFrontmatter(text);
-      lintNames(file, parsed, violations);
+      lintNames(file, toPosix(path.relative(repoRoot, file)), parsed, exceptions, violations);
       lintReferenceScopes(file, text, parsed.data.screening_scope, violations);
     }
 
