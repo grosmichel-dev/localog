@@ -209,6 +209,18 @@ function validateGuidePage(doc, errors) {
   const { file, parsed } = doc;
   if (parsed.error) addMessage(errors, file, 1, parsed.error);
   if (!hasValue(parsed.data.title)) addMessage(errors, file, lineOf(parsed, 'title'), '안내 페이지에는 title 필드가 필요합니다.');
+
+  // index.md 는 안내 페이지로 분류돼 날짜·부서·출처·서명 검사를 전부 건너뛴다.
+  // 기록 문서를 이 이름으로 저장하면 아무 검증 없이 공개된다. source_type 은 그 실수의 지문이다.
+  if (hasValue(parsed.data.source_type)) {
+    addMessage(
+      errors,
+      file,
+      lineOf(parsed, 'source_type'),
+      '안내 페이지에 source_type 이 있습니다. 기록 문서를 index.md 로 저장하면 검증을 통째로 건너뜁니다. '
+        + '파일 이름을 YYYY-MM-DD-<식별어>.md 로 바꾸세요.',
+    );
+  }
 }
 
 // 원천 게시판 주소는 자주 사라진다. 사본을 남기거나, 남길 수 없었다는 사실을 기록해야 한다.
