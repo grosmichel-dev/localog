@@ -43,6 +43,19 @@ jobs:
       - name: 개인정보 검사
         run: node tools/lint-pii.mjs
 
+      # private/ 에는 참여자 이메일↔필명 대응표가 있다(docs/CONTRIBUTORS.md).
+      # 한 번 커밋되면 커밋을 되돌려도 git 히스토리에 영원히 남으므로 .gitignore 만 믿지 않는다.
+      - name: 참여자 개인정보(private/)가 커밋되지 않았는지 확인
+        run: |
+          set -euo pipefail
+          tracked=$(git -c core.quotePath=false ls-files private || true)
+          if [ -n "$tracked" ]; then
+            echo "::error::private/ 아래 파일이 저장소에 커밋되어 있습니다 — 참여자 이메일이 공개됩니다. 즉시 되돌리고 히스토리 제거를 검토하세요"
+            echo "$tracked"
+            exit 1
+          fi
+          echo "참여자 개인정보 미커밋 확인 완료"
+
       # Quartz SPA 라우터는 본문 인라인 <script> 를 재실행하지 않는다.
       # static/*.html 도구 페이지를 data-router-ignore 없이 걸면, 링크로 들어온
       # 사용자에게는 스크립트가 죽은 빈 껍데기가 뜬다 (주소 직접 입력만 정상).
