@@ -20,19 +20,17 @@
   doc_id: internal
   archive: required
 
+# 게재기간은 받지 않기로 했다(2026-08-04). 신청 마감과 뜻이 달라 오해를 부르는데,
+# 주민이 실제로 알고 싶은 값도 아니다. 필요해지면 dates 에 posting_* 를 다시 넣으면 된다.
 고시공고:
   source_type: 고시공고
   doc_id: official
   archive: required
-  dates: [posting_starts_at, posting_ends_at]
-  required_dates: [posting_starts_at, posting_ends_at]
 
 입찰공고:
   source_type: 입찰공고
   doc_id: official
   archive: required
-  dates: [posting_starts_at, posting_ends_at]
-  required_dates: [posting_starts_at, posting_ends_at]
 
 도시계획고시공고:
   source_type: 도시계획고시공고

@@ -144,31 +144,34 @@ screening_scope: markdown+originals+assets
 
 | 필드 | 뜻 |
 |---|---|
-| `posting_starts_at` | 게재 시작 |
-| `posting_ends_at` | 게재 종료 — **신청 마감이 아닙니다** |
 | `application_starts_at` | 신청·접수 시작 |
 | `application_deadline` | 신청·접수 마감 — 주민이 가장 알고 싶은 값 |
 | `event_starts_at` | 행사 시작 |
 | `event_ends_at` | 행사 종료 |
+| `posting_starts_at` | 게재 시작 — **지금은 받지 않습니다**(아래 참고) |
+| `posting_ends_at` | 게재 종료 — **신청 마감이 아닙니다** |
 
 경우별로 채우는 칸:
 
 | 경우 | 채우는 칸 |
 |---|---|
 | 단순 공고 (공시송달 등) | `date` 만 |
-| 고시공고 게재기간 | `date` + `posting_starts_at` + `posting_ends_at` |
 | 채용공고 | `date` + `application_deadline` (+ `application_starts_at`) |
 | 행사 + 신청 접수 | `date` + `event_starts_at` + `event_ends_at` + `application_deadline` |
 
 - 모든 날짜는 `YYYY-MM-DD` 형식입니다.
-- **게재기간을 신청 마감으로 적으면 안 됩니다.** 게재기간은 `posting_*`에만 넣습니다.
-  `application_deadline`이 비어 있으면 AI는 신청 마감을 말하지 않습니다. 이름 자체가 방어선입니다.
+- **게재기간(`posting_*`)은 2026-08-04부터 받지 않습니다.** 공고가 게시판에 걸려 있는 기간일 뿐
+  신청 마감과 뜻이 다르고, 주민이 실제로 알고 싶은 값도 아니기 때문입니다.
+  필드 자체는 남겨 두었으므로 적어도 오류는 나지 않습니다. 다시 받기로 하면
+  레지스트리의 `dates`에 `posting_*`를 넣으면 됩니다.
+- **게재기간을 신청 마감 칸에 적으면 안 됩니다.** `application_deadline`이 비어 있으면
+  AI는 신청 마감을 말하지 않습니다. 이름 자체가 방어선입니다.
 - 각 쌍에서 시작일이 종료일보다 늦으면 오류입니다. `application_starts_at`만 있고
   `application_deadline`이 없어도 오류입니다.
 - 레지스트리의 `required_dates`에 걸린 분류는 그 칸을 비우면 CI가 발행을 막습니다.
-  (대덕구: 고시공고·입찰공고 = `posting_starts_at`+`posting_ends_at`, 채용공고 = `application_deadline`)
-- `required_dates`가 없는 분류(구청 공지사항·행사소식 등)는 6칸이 전부 비어도 통과합니다.
-  행사소식 게시판에는 날짜 열이 없으므로 강제하지 않습니다.
+  (대덕구: 채용공고 = `application_deadline` 하나뿐)
+- `required_dates`가 없는 나머지 분류는 6칸이 전부 비어도 통과합니다.
+  원천 게시판에 없는 날짜를 강제하면 기여자가 값을 지어내게 되기 때문입니다.
 
 ---
 

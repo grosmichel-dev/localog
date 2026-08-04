@@ -70,7 +70,7 @@ localog의 콘텐츠 작성 도구는 옵시디언 하나입니다. 아래대로
 
 ### 템플릿 1 — 게시판형·문서번호 있음 (고시공고·입찰공고)
 
-원천 게시판에 고시공고번호와 게재기간이 있는 분류입니다.
+원천 게시판에 고시공고번호가 있는 분류입니다.
 
 ```markdown
 ---
@@ -83,9 +83,6 @@ source_url:
 archive_url: 
 # doc_id 필수 — 게시판의 고시공고번호 그대로 (예 대덕구-청년정책과-2026-0517)
 doc_id: 
-# posting_starts_at · posting_ends_at 필수 — 게시판의 게재기간 그대로
-posting_starts_at: 
-posting_ends_at: 
 관련근거: []
 review_status: draft
 pii_screened_by: 
@@ -95,7 +92,8 @@ screening_scope:
 ```
 
 - 입찰공고면 `source_type: 입찰공고`로 바꿉니다.
-- **게재기간은 신청 마감이 아닙니다.** 신청 마감이 따로 있으면 `application_deadline` 줄을 추가하세요.
+- **게재기간은 받지 않습니다.** 공고가 게시판에 걸려 있는 기간일 뿐, 신청 마감과 뜻이 다릅니다.
+  신청 마감이 따로 있으면 `application_deadline` 줄을 추가하세요.
 
 ### 템플릿 2 — 게시판형·문서번호 없음 (구청 공지사항·채용공고·행사소식·보도해명·도시계획고시공고)
 
