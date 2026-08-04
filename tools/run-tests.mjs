@@ -116,6 +116,8 @@ async function runPiiTests() {
     ['pii/csv-clean', 'csv-clean', { code: 0 }],
     ['pii/csv-structural-column', 'csv-structural-column', { code: 1, includes: ['김철수', '사업명'] }],
     ['pii/csv-exception-ok', 'csv-exception-ok', { code: 0, includes: ['개인정보 검사 예외 1건'] }],
+    // 공지문의 부서 연락처 옆 낱말이 매번 성명 후보로 잡히므로 마크다운에도 예외가 필요하다
+    ['pii/md-exception-ok', 'md-exception-ok', { code: 0, includes: ['개인정보 검사 예외 1건'] }],
     ['pii/csv-exception-no-reason', 'csv-exception-no-reason', { code: 1, includes: ['5개'] }],
   ];
   return cases.map(([name, dir, expectation]) => {
