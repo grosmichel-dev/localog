@@ -73,6 +73,15 @@ jobs:
           cp .catalog-tmp/llms.txt .catalog-tmp/catalog.csv public/
           mkdir -p public/static
           cp -r static/. public/static/
+          # Quartz 는 content/ 만 빌드한다. originals/·assets/ 를 옮기지 않으면
+          # 문서 안의 [원본 PDF](originals/…) 링크가 전부 404 가 된다.
+          for dir in originals assets; do
+            if [ -d "$dir" ] && [ -n "$(ls -A "$dir" 2>/dev/null)" ]; then
+              mkdir -p "public/$dir"
+              cp -r "$dir/." "public/$dir/"
+              echo "$dir 복사 완료"
+            fi
+          done
 
       - name: 예산 CSV 다운로드 발행 (검증 통과 쌍만 — 목록 밖 CSV 를 복사하면 서명 없는 원본이 공개된다)
         run: |
@@ -105,6 +114,8 @@ jobs:
           fi
 
           [ -f public/static/prompt-generator.html ] || fail "질문 생성기 페이지가 사이트에 없습니다"
+
+          node tools/check-published-refs.mjs
 
           grep -q "source_commit:.*${GITHUB_SHA}" public/llms.txt \
             || fail "llms.txt 의 source_commit 이 이번 커밋(${GITHUB_SHA})과 다릅니다"
