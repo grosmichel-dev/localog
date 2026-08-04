@@ -87,6 +87,8 @@ async function runValidateTests() {
     ['validate/blank-required-date', 'blank-required-date', { code: 1, includes: ['application_deadline 가 필요합니다'] }],
     // 분류 레지스트리
     ['validate/unknown-category-folder', 'unknown-category-folder', { code: 1, includes: ['문서분류 폴더가 표준값이 아닙니다'] }],
+    // index.md 는 검증을 건너뛰므로, 기록 문서를 그 이름으로 저장하는 실수를 막아야 한다
+    ['validate/record-saved-as-index', 'record-saved-as-index', { code: 1, includes: ['안내 페이지에 source_type 이 있습니다'] }],
     // 전사·안건
     ['validate/transcript-missing-disclaimer', 'transcript-missing-disclaimer', { code: 1, includes: ['본문 첫 줄이 고지문이어야'] }],
     ['validate/agenda-anchor-missing', 'agenda-anchor-missing', { code: 1, includes: ['안건 헤딩에 앵커가 없습니다'] }],
